@@ -262,7 +262,7 @@ export default function Footer() {
         <div className="border-t border-pink-200/10 py-5 md:py-7">
           <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between md:gap-5">
             <p className="order-2 text-center text-xs text-pink-200/60 md:order-1 md:text-sm">
-              © {year} {schoolName}. All Rights Reserved.
+              © powered by- Web core cube tech. _9058596626.
             </p>
 
             <div className="order-1 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 md:order-2 md:gap-6">
