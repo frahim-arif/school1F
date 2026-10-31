@@ -8,10 +8,11 @@ const H = "font-[family-name:var(--font-head)]";
 const wrap = "mx-auto max-w-7xl px-5 md:px-8";
 const DURATION = 4800; // ms per facility
 
-/* facilities = [{ icon: LucideIcon, title, desc }, ...]  (same array as before, 6 items) */
+/* facilities = [{ icon: LucideIcon, title, desc }, ...] */
 export default function FacilitiesSection({ facilities = [] }) {
   const n = facilities.length;
   const ref = useRef(null);
+  const touchX = useRef(null);
   const [shown, setShown] = useState(false);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -37,7 +38,7 @@ export default function FacilitiesSection({ facilities = [] }) {
     return () => io.disconnect();
   }, []);
 
-  // auto-rotate (stops on hover/touch, and for people who prefer reduced motion)
+  // auto-rotate (stops on mouse hover and for reduced-motion users)
   useEffect(() => {
     if (!shown || paused || n < 2) return;
     if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -53,6 +54,22 @@ export default function FacilitiesSection({ facilities = [] }) {
     setTick((t) => t + 1);
   };
 
+  // swipe support (mobile)
+  const onTouchStart = (e) => {
+    touchX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e) => {
+    if (touchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(dx) > 50) go(dx < 0 ? active + 1 : active - 1);
+  };
+
+  // hover only for real mouse (touch devices fire fake mouseenter on tap)
+  const mouseOnly = (fn) => (e) => {
+    if (e.pointerType === "mouse") fn();
+  };
+
   if (!n) return null;
   const cur = facilities[active];
   const CurIcon = cur.icon;
@@ -61,7 +78,7 @@ export default function FacilitiesSection({ facilities = [] }) {
     <section
       id="facilities"
       style={{ scrollMarginTop: "5rem" }}
-      className="relative overflow-hidden bg-white py-16 md:py-28"
+      className="relative overflow-hidden bg-white py-12 sm:py-16 md:py-28"
     >
       <style>{`
         @keyframes fc-in{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
@@ -87,82 +104,53 @@ export default function FacilitiesSection({ facilities = [] }) {
       />
       <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" />
 
+      {/*
+        Mobile order: heading -> card -> list
+        Desktop: left column (heading + list), right column (card, spans 2 rows)
+      */}
       <div
         ref={ref}
-        className={`${wrap} relative grid items-start gap-8 transition duration-700 motion-reduce:transition-none lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 ${
+        className={`${wrap} relative grid items-start gap-6 transition duration-700 motion-reduce:transition-none lg:grid-cols-[0.9fr_1.1fr] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:gap-y-8 ${
           shown ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
         }`}
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => {
-          setPaused(false);
-          setTick((t) => t + 1);
-        }}
-        onTouchStart={() => setPaused(true)}
       >
-        {/* LEFT: heading + list */}
-        <div>
+        {/* 1) HEADING */}
+        <div className="lg:col-start-1 lg:row-start-1">
           <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
             <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
             Our facilities
           </span>
-          <h2 className={`${H} mt-4 text-2xl font-black leading-tight text-slate-900 sm:text-3xl md:text-4xl lg:text-[42px]`}>
+          <h2 className={`${H} mt-3 text-[26px] font-black leading-tight text-slate-900 sm:mt-4 sm:text-3xl md:text-4xl lg:text-[42px]`}>
             Everything Students Need to <span className="text-blue-700">Grow</span>
           </h2>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600 sm:text-base md:leading-7">
+          <p className="mt-2.5 max-w-lg text-sm leading-6 text-slate-600 sm:mt-3 sm:text-base md:leading-7">
             A comfortable, safe and modern environment designed to support learning and student development.
           </p>
-
-          {/* chips on mobile, vertical list on desktop */}
-          <div className="-mx-5 mt-6 flex gap-2.5 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:mx-0 lg:mt-8 lg:flex-col lg:gap-2.5 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
-            {facilities.map(({ icon: Icon, title }, i) => {
-              const on = i === active;
-              return (
-                <button
-                  key={title}
-                  type="button"
-                  onClick={() => go(i)}
-                  onMouseEnter={() => i !== active && go(i)}
-                  aria-pressed={on}
-                  className={`group flex shrink-0 items-center gap-2.5 rounded-full px-3.5 py-2.5 text-left text-sm font-bold transition duration-300 lg:w-full lg:gap-4 lg:rounded-2xl lg:px-4 lg:py-3.5 lg:text-base ${
-                    on
-                      ? "bg-gradient-to-r from-[#0F2A4D] to-blue-700 text-white shadow-lg shadow-blue-900/20 lg:translate-x-2"
-                      : "bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-white hover:ring-blue-200"
-                  }`}
-                >
-                  <span className={`${H} hidden w-6 text-sm font-black lg:block ${on ? "text-amber-400" : "text-slate-300"}`}>
-                    0{i + 1}
-                  </span>
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full lg:h-10 lg:w-10 lg:rounded-xl ${
-                      on ? "bg-white/15 text-white" : "bg-white text-blue-600 ring-1 ring-slate-200"
-                    }`}
-                  >
-                    <Icon size={17} />
-                  </span>
-                  <span className="whitespace-nowrap lg:flex-1 lg:whitespace-normal">{title}</span>
-                  <ArrowRight
-                    size={17}
-                    className={`hidden transition lg:block ${on ? "text-amber-400" : "text-slate-300 group-hover:text-blue-500"}`}
-                  />
-                </button>
-              );
-            })}
-          </div>
         </div>
 
-        {/* RIGHT: showcase card */}
-        <div className="relative lg:sticky lg:top-28">
-          <div className="absolute -inset-2 rounded-[32px] bg-gradient-to-br from-blue-200 to-amber-100 blur-xl" />
-          <div className="relative flex min-h-[340px] flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-[#0A1B33] via-[#0F2A4D] to-[#143A6B] p-6 text-white shadow-2xl shadow-blue-900/30 sm:p-8 lg:min-h-[480px] lg:p-10">
+        {/* 2) SHOWCASE CARD */}
+        <div
+          className="relative lg:sticky lg:top-28 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+          onPointerEnter={mouseOnly(() => setPaused(true))}
+          onPointerLeave={mouseOnly(() => {
+            setPaused(false);
+            setTick((t) => t + 1);
+          })}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="absolute -inset-1.5 rounded-[28px] bg-gradient-to-br from-blue-200 to-amber-100 blur-xl sm:-inset-2 sm:rounded-[32px]" />
+          <div className="relative flex min-h-[400px] flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-[#0A1B33] via-[#0F2A4D] to-[#143A6B] p-5 text-white shadow-2xl shadow-blue-900/30 sm:min-h-[380px] sm:p-8 lg:min-h-[480px] lg:p-10">
             <div
               className="absolute inset-0 opacity-[0.08]"
               style={{ backgroundImage: "radial-gradient(#fff 1px, transparent 1px)", backgroundSize: "24px 24px" }}
             />
             <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-blue-500/30 blur-[70px]" />
             <div className="absolute -bottom-16 left-10 h-48 w-48 rounded-full bg-amber-400/15 blur-[70px]" />
+            {/* big outline number: hidden on small phones to avoid overlap */}
             <span
               key={`n-${active}`}
-              className={`${H} fc-in pointer-events-none absolute -right-2 top-2 select-none text-[110px] font-black leading-none text-transparent sm:text-[150px]`}
+              className={`${H} fc-in pointer-events-none absolute -right-2 top-2 hidden select-none text-[130px] font-black leading-none text-transparent sm:block lg:text-[150px]`}
               style={{ WebkitTextStroke: "1.5px rgba(255,255,255,.12)" }}
             >
               0{active + 1}
@@ -170,7 +158,7 @@ export default function FacilitiesSection({ facilities = [] }) {
 
             {/* top row: counter + arrows */}
             <div className="relative flex items-center justify-between">
-              <p className="text-sm font-semibold text-blue-100">
+              <p className="text-xs font-semibold text-blue-100 sm:text-sm">
                 Facility <span className="text-amber-400">0{active + 1}</span> / 0{n}
               </p>
               <div className="flex gap-2">
@@ -178,7 +166,7 @@ export default function FacilitiesSection({ facilities = [] }) {
                   type="button"
                   onClick={() => go(active - 1)}
                   aria-label="Previous facility"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition hover:bg-amber-400 hover:text-slate-900"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition active:scale-95 hover:bg-amber-400 hover:text-slate-900 sm:h-9 sm:w-9"
                 >
                   <ChevronLeft size={18} />
                 </button>
@@ -186,7 +174,7 @@ export default function FacilitiesSection({ facilities = [] }) {
                   type="button"
                   onClick={() => go(active + 1)}
                   aria-label="Next facility"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition hover:bg-amber-400 hover:text-slate-900"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition active:scale-95 hover:bg-amber-400 hover:text-slate-900 sm:h-9 sm:w-9"
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -194,22 +182,22 @@ export default function FacilitiesSection({ facilities = [] }) {
             </div>
 
             {/* icon + text */}
-            <div key={active} className="relative mt-6 flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7 lg:mt-0">
+            <div key={active} className="relative my-6 flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7 lg:my-0">
               <div className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28 lg:h-36 lg:w-36">
                 <div className="fc-spin absolute inset-0 rounded-full border-2 border-dashed border-amber-400/60" />
                 <div className="absolute inset-3 rounded-full bg-amber-400/20 blur-xl" />
                 <div className="fc-icon absolute inset-3 flex items-center justify-center rounded-full bg-gradient-to-br from-white to-blue-100 text-blue-700 shadow-xl ring-4 ring-white/20 lg:inset-4">
-                  <CurIcon size={40} className="lg:h-12 lg:w-12" />
+                  <CurIcon size={36} className="lg:h-12 lg:w-12" />
                 </div>
               </div>
               <div className="fc-in">
-                <h3 className={`${H} text-2xl font-black leading-tight sm:text-3xl lg:text-[34px]`}>{cur.title}</h3>
-                <p className="mt-2.5 max-w-md text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">{cur.desc}</p>
+                <h3 className={`${H} text-[22px] font-black leading-tight sm:text-3xl lg:text-[34px]`}>{cur.title}</h3>
+                <p className="mt-2 max-w-md text-[13.5px] leading-6 text-slate-300 sm:mt-2.5 sm:text-base sm:leading-7">{cur.desc}</p>
               </div>
             </div>
 
-            {/* bottom: progress + dots + link */}
-            <div className="relative mt-7">
+            {/* bottom: progress + link */}
+            <div className="relative">
               <div className="flex items-center gap-1.5">
                 {facilities.map((f, i) => (
                   <button
@@ -217,31 +205,70 @@ export default function FacilitiesSection({ facilities = [] }) {
                     type="button"
                     onClick={() => go(i)}
                     aria-label={`Show ${f.title}`}
-                    className={`relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/20`}
+                    className="group flex h-5 flex-1 items-center" /* bigger tap area */
                   >
-                    {i < active && <span className="absolute inset-0 bg-white/60" />}
-                    {i === active && (
-                      <span
-                        key={`${active}-${tick}`}
-                        className="absolute inset-y-0 left-0 w-full origin-left bg-amber-400"
-                        style={{
-                          animation: `fc-bar ${DURATION}ms linear forwards`,
-                          animationPlayState: paused ? "paused" : "running",
-                        }}
-                      />
-                    )}
+                    <span className="relative block h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+                      {i < active && <span className="absolute inset-0 bg-white/60" />}
+                      {i === active && (
+                        <span
+                          key={`${active}-${tick}`}
+                          className="absolute inset-y-0 left-0 w-full origin-left bg-amber-400"
+                          style={{
+                            animation: `fc-bar ${DURATION}ms linear forwards`,
+                            animationPlayState: paused ? "paused" : "running",
+                          }}
+                        />
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>
               <Link
                 href="/gallery"
-                className="group mt-5 inline-flex items-center gap-2 text-sm font-bold text-amber-400 hover:text-amber-300"
+                className="group mt-3 inline-flex items-center gap-2 text-sm font-bold text-amber-400 hover:text-amber-300 sm:mt-4"
               >
                 See our campus in the gallery
                 <ArrowRight size={16} className="transition group-hover:translate-x-1" />
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* 3) LIST: 2-col grid on mobile, 3-col on sm, vertical list on desktop */}
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:col-start-1 lg:row-start-2 lg:flex lg:flex-col lg:gap-2.5">
+          {facilities.map(({ icon: Icon, title }, i) => {
+            const on = i === active;
+            return (
+              <button
+                key={title}
+                type="button"
+                onClick={() => go(i)}
+                onPointerEnter={mouseOnly(() => i !== active && go(i))}
+                aria-pressed={on}
+                className={`group flex min-w-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-bold leading-tight transition duration-300 sm:text-sm lg:w-full lg:gap-4 lg:rounded-2xl lg:px-4 lg:py-3.5 lg:text-base ${
+                  on
+                    ? "bg-gradient-to-r from-[#0F2A4D] to-blue-700 text-white shadow-lg shadow-blue-900/20 lg:translate-x-2"
+                    : "bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-white hover:ring-blue-200"
+                }`}
+              >
+                <span className={`${H} hidden w-6 text-sm font-black lg:block ${on ? "text-amber-400" : "text-slate-300"}`}>
+                  0{i + 1}
+                </span>
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full lg:h-10 lg:w-10 lg:rounded-xl ${
+                    on ? "bg-white/15 text-white" : "bg-white text-blue-600 ring-1 ring-slate-200"
+                  }`}
+                >
+                  <Icon size={16} />
+                </span>
+                <span className="min-w-0 flex-1 break-words">{title}</span>
+                <ArrowRight
+                  size={17}
+                  className={`hidden transition lg:block ${on ? "text-amber-400" : "text-slate-300 group-hover:text-blue-500"}`}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
     </section>
