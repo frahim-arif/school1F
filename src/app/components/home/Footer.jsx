@@ -11,15 +11,32 @@ import logo from "../../../images/logo.png";
 
 const wrap = "mx-auto max-w-7xl px-5 md:px-8";
 
+/* Change contact details only here */
+const SCHOOL = {
+  name: "Adarsha Markaz Academy",
+  phoneDisplay: "+91 99570 83223",
+  phoneTel: "+919957083223",
+  whatsapp: "919957083223",
+  email: "amalaharighat@gmail.com",
+  address: "Laharighat, Morigaon, Assam, India – 782127",
+  mapQuery: "Laharighat+Morigaon+Assam+782127",
+};
+
+const CREDIT = {
+  name: "Web Core Cube Tech",
+  phoneDisplay: "9058596626",
+  phoneTel: "+919058596626",
+};
+
 export default function Footer() {
   const year = new Date().getFullYear();
-  const schoolName = "Adarsha Markaz Academy";
+  const schoolName = SCHOOL.name;
 
   const socialLinks = [
     { icon: FaFacebookF, href: "#", label: "Facebook" },
     { icon: FaInstagram, href: "#", label: "Instagram" },
     { icon: FaYoutube, href: "#", label: "YouTube" },
-    { icon: FaWhatsapp, href: "#", label: "WhatsApp" },
+    { icon: FaWhatsapp, href: `https://wa.me/${SCHOOL.whatsapp}`, label: "WhatsApp" },
   ];
 
   const quickLinks = [
@@ -33,16 +50,16 @@ export default function Footer() {
 
   const schoolLinks = ["Admissions", "Notice Board", "School Events", "Examination", "Our Teachers", "Photo Gallery"];
 
- const contacts = [
-  { icon: Phone, label: "Phone", value: "+91 99570 83223", href: "tel:+919957083223" },
-  { icon: Mail, label: "Email", value: "amalaharighat@gmail.com", href: "mailto:amalaharighat@gmail.com" },
-  {
-    icon: MapPin,
-    label: "Address",
-    value: "Laharighat, Morigaon, Assam, India – 782127",
-    href: "https://www.google.com/maps/search/?api=1&query=Laharighat+Morigaon+Assam+782127",
-  },
-];
+  const contacts = [
+    { icon: Phone, label: "Phone", value: SCHOOL.phoneDisplay, href: `tel:${SCHOOL.phoneTel}` },
+    { icon: Mail, label: "Email", value: SCHOOL.email, href: `mailto:${SCHOOL.email}` },
+    {
+      icon: MapPin,
+      label: "Address",
+      value: SCHOOL.address,
+      href: `https://www.google.com/maps/search/?api=1&query=${SCHOOL.mapQuery}`,
+    },
+  ];
 
   const linkClass =
     "group flex items-center gap-1.5 text-[13.5px] text-pink-100/70 transition-all duration-300 hover:translate-x-1 hover:text-pink-300 md:text-[15px]";
@@ -113,15 +130,11 @@ export default function Footer() {
             </p>
 
             <div className="mt-4 hidden flex-wrap gap-x-5 gap-y-2 text-sm text-pink-50/90 sm:flex">
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck size={16} className="text-pink-200" /> Safe campus
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck size={16} className="text-pink-200" /> Caring teachers
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck size={16} className="text-pink-200" /> Value-based learning
-              </span>
+              {["Safe campus", "Caring teachers", "Value-based learning"].map((t) => (
+                <span key={t} className="inline-flex items-center gap-1.5">
+                  <ShieldCheck size={16} className="text-pink-200" /> {t}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -134,7 +147,7 @@ export default function Footer() {
               <ArrowRight size={18} className="transition group-hover:translate-x-1" />
             </Link>
             <a
-              href="tel:+919876543210"
+              href={`tel:${SCHOOL.phoneTel}`}
               className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white ring-1 ring-white/35 transition hover:bg-white/10 sm:px-8 sm:py-3.5 md:rounded-2xl md:text-base"
             >
               <Phone size={16} /> Call us
@@ -199,10 +212,7 @@ export default function Footer() {
               {quickLinks.map((item) => (
                 <li key={item.title}>
                   <Link href={item.href} className={linkClass}>
-                    <ChevronRight
-                      size={14}
-                      className="shrink-0 text-pink-400/50 transition group-hover:text-pink-300"
-                    />
+                    <ChevronRight size={14} className="shrink-0 text-pink-400/50 transition group-hover:text-pink-300" />
                     {item.title}
                   </Link>
                 </li>
@@ -217,10 +227,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-2.5 md:mt-6 md:space-y-3.5">
               {schoolLinks.map((item) => (
                 <li key={item} className={linkClass}>
-                  <ChevronRight
-                    size={14}
-                    className="shrink-0 text-pink-400/50 transition group-hover:text-pink-300"
-                  />
+                  <ChevronRight size={14} className="shrink-0 text-pink-400/50 transition group-hover:text-pink-300" />
                   {item}
                 </li>
               ))}
@@ -235,11 +242,24 @@ export default function Footer() {
             <div className="mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:mt-6 lg:grid-cols-1">
               {contacts.map(({ icon: Icon, label, value, href }, i) => (
                 <a
-  href="tel:+919957083223"
-  className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white ring-1 ring-white/35 transition hover:bg-white/10 sm:px-8 sm:py-3.5 md:rounded-2xl md:text-base"
->
-  <Phone size={16} /> Call us
-</a>
+                  key={label}
+                  href={href}
+                  target={label === "Address" ? "_blank" : undefined}
+                  rel={label === "Address" ? "noopener noreferrer" : undefined}
+                  className={`group flex items-start gap-3 rounded-2xl border border-pink-200/10 bg-white/[0.04] p-3 transition duration-300 hover:border-pink-300/30 hover:bg-white/[0.08] md:p-3.5 ${
+                    i === 2 ? "sm:col-span-2 lg:col-span-1" : ""
+                  }`}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400/25 to-rose-500/25 text-pink-300 transition group-hover:from-pink-400 group-hover:to-rose-500 group-hover:text-white md:h-10 md:w-10">
+                    <Icon size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-semibold text-pink-50 md:text-sm">{label}</span>
+                    <span className="mt-0.5 block break-words text-[12.5px] leading-5 text-pink-100/70 md:text-sm">
+                      {value}
+                    </span>
+                  </span>
+                </a>
               ))}
             </div>
           </div>
@@ -248,9 +268,18 @@ export default function Footer() {
         {/* ---------- BOTTOM BAR ---------- */}
         <div className="border-t border-pink-200/10 py-5 md:py-7">
           <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between md:gap-5">
-            <p className="order-2 text-center text-xs text-pink-200/60 md:order-1 md:text-sm">
-              © Powered by- Web core cube tech. _9058596626.
-            </p>
+            <div className="order-2 text-center text-xs text-pink-200/60 md:order-1 md:text-left md:text-sm">
+              <p>
+                © {year} {schoolName}. All Rights Reserved.
+              </p>
+              <p className="mt-1">
+                Powered by <span className="font-semibold text-pink-200/80">{CREDIT.name}</span>
+                <span className="mx-1.5 text-pink-200/30">•</span>
+                <a href={`tel:${CREDIT.phoneTel}`} className="transition hover:text-pink-300">
+                  {CREDIT.phoneDisplay}
+                </a>
+              </p>
+            </div>
 
             <div className="order-1 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 md:order-2 md:gap-6">
               {["Privacy Policy", "Terms & Conditions", "Support"].map((item) => (
