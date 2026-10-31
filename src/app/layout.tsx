@@ -1,4 +1,6 @@
+
 import "./globals.css";
+import type { ReactNode } from "react";
 
 const schoolName = "Adarsha Markaz Academy";
 
@@ -49,7 +51,11 @@ export const viewport = {
   themeColor: "#3e2218",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: ReactNode;
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
