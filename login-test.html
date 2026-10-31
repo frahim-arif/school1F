@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School ERP Admin Registration</title>
+</head>
+<body style="font-family:Arial;max-width:420px;margin:40px auto;padding:20px">
+  <h2>Create School Admin</h2>
+
+  <form id="registerForm">
+    <p>
+      <label>Name</label><br>
+      <input id="name" value="School Principal" required
+        style="width:100%;padding:10px;box-sizing:border-box">
+    </p>
+
+    <p>
+      <label>Email</label><br>
+      <input id="email" type="email" value="admin@gmail.com" required
+        style="width:100%;padding:10px;box-sizing:border-box">
+    </p>
+
+    <p>
+      <label>Password</label><br>
+      <input id="password" type="password" value="123456" required
+        style="width:100%;padding:10px;box-sizing:border-box">
+    </p>
+
+    <button type="submit" style="padding:10px 20px">Register Admin</button>
+  </form>
+
+  <pre id="result" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const result = document.getElementById("result");
+      result.textContent = "Registering...";
+
+      try {
+        const response = await fetch("http://localhost:5000/api/auth/register", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            name: document.getElementById("name").value.trim(),
+            email: document.getElementById("email").value.trim().toLowerCase(),
+            password: document.getElementById("password").value,
+            role: "Admin"
+          })
+        });
+
+        const data = await response.json();
+        result.textContent = "HTTP Status: " + response.status +
+          "\n" + JSON.stringify({
+            success: data.success,
+            message: data.message,
+            user: data.user ? {
+              name: data.user.name,
+              email: data.user.email,
+              role: data.user.role
+            } : undefined
+          }, null, 2);
+      } catch (error) {
+        result.textContent = "Connection error: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
