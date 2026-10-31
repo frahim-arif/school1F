@@ -33,16 +33,16 @@ export default function Footer() {
 
   const schoolLinks = ["Admissions", "Notice Board", "School Events", "Examination", "Our Teachers", "Photo Gallery"];
 
-  const contacts = [
-    { icon: Phone, label: "Phone", value: "+91 98765 43210", href: "tel:+919876543210" },
-    { icon: Mail, label: "Email", value: "info@ourschool.com", href: "mailto:info@ourschool.com" },
-    {
-      icon: MapPin,
-      label: "Address",
-      value: "Laharighat, Morigaon, Assam, India – 782127",
-      href: "https://www.google.com/maps/search/?api=1&query=Laharighat+Morigaon+Assam+782127",
-    },
-  ];
+ const contacts = [
+  { icon: Phone, label: "Phone", value: "+91 99570 83223", href: "tel:+919957083223" },
+  { icon: Mail, label: "Email", value: "amalaharighat@gmail.com", href: "mailto:amalaharighat@gmail.com" },
+  {
+    icon: MapPin,
+    label: "Address",
+    value: "Laharighat, Morigaon, Assam, India – 782127",
+    href: "https://www.google.com/maps/search/?api=1&query=Laharighat+Morigaon+Assam+782127",
+  },
+];
 
   const linkClass =
     "group flex items-center gap-1.5 text-[13.5px] text-pink-100/70 transition-all duration-300 hover:translate-x-1 hover:text-pink-300 md:text-[15px]";
@@ -235,24 +235,11 @@ export default function Footer() {
             <div className="mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:mt-6 lg:grid-cols-1">
               {contacts.map(({ icon: Icon, label, value, href }, i) => (
                 <a
-                  key={label}
-                  href={href}
-                  target={label === "Address" ? "_blank" : undefined}
-                  rel={label === "Address" ? "noopener noreferrer" : undefined}
-                  className={`group flex items-start gap-3 rounded-2xl border border-pink-200/10 bg-white/[0.04] p-3 transition duration-300 hover:border-pink-300/30 hover:bg-white/[0.08] md:p-3.5 ${
-                    i === 2 ? "sm:col-span-2 lg:col-span-1" : ""
-                  }`}
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400/25 to-rose-500/25 text-pink-300 transition group-hover:from-pink-400 group-hover:to-rose-500 group-hover:text-white md:h-10 md:w-10">
-                    <Icon size={17} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[13px] font-semibold text-pink-50 md:text-sm">{label}</span>
-                    <span className="mt-0.5 block break-words text-[12.5px] leading-5 text-pink-100/70 md:text-sm">
-                      {value}
-                    </span>
-                  </span>
-                </a>
+  href="tel:+919957083223"
+  className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white ring-1 ring-white/35 transition hover:bg-white/10 sm:px-8 sm:py-3.5 md:rounded-2xl md:text-base"
+>
+  <Phone size={16} /> Call us
+</a>
               ))}
             </div>
           </div>
@@ -262,7 +249,7 @@ export default function Footer() {
         <div className="border-t border-pink-200/10 py-5 md:py-7">
           <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between md:gap-5">
             <p className="order-2 text-center text-xs text-pink-200/60 md:order-1 md:text-sm">
-              © powered by- Web core cube tech. _9058596626.
+              © Powered by- Web core cube tech. _9058596626.
             </p>
 
             <div className="order-1 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 md:order-2 md:gap-6">
