@@ -50,7 +50,9 @@ const merri = Merriweather({
 const H = "font-[family-name:var(--font-head)]";
 const wrap = "mx-auto max-w-7xl px-5 md:px-8";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
+).replace(/\/+$/, "");
 
 async function fetchPublicData(endpoint) {
   try {
