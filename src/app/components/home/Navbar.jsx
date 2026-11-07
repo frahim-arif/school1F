@@ -9,7 +9,7 @@ import { Menu, X, ChevronRight, MapPin } from "lucide-react";
 
 import logo from "../../../images/logo.png";
 
-const schoolName = "Adarsha Markaz Academy";
+const schoolName = "Adarsha Markaz Academy Laharighat";
 const schoolLocation = "Laharighat, Morigaon, Assam";
 
 const menu = [
