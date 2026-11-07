@@ -13,7 +13,7 @@ const wrap = "mx-auto max-w-7xl px-5 md:px-8";
 
 /* Change contact details only here */
 const SCHOOL = {
-  name: "Adarsha Markaz Academy",
+  name: "Adarsha Markaz Academy Laharighat",
   phoneDisplay: "+91 99570 83223",
   phoneTel: "+919957083223",
   whatsapp: "919957083223",
