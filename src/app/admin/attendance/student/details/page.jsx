@@ -169,10 +169,3 @@ export default function StudentDetailsPage() {
   );
 }
 
-function Stat({ label, value, icon }) {
-  return <div className="flex items-center gap-3 border border-slate-200 bg-white p-4"><div className="bg-emerald-50 p-3 text-emerald-700">{icon}</div><div><p className="text-xs text-slate-500">{label}</p><p className="text-2xl font-bold">{value}</p></div></div>;
-}
-
-function Detail({ label, value }) {
-  return <div className="border-b border-slate-100 pb-2"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 break-words text-sm font-semibold">{value || "-"}</p></div>;
-}
