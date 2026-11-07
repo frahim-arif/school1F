@@ -1,594 +1,550 @@
+
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
-  Search,
-  RefreshCw,
-  Save,
   Users,
   CheckCircle2,
   XCircle,
-  Clock3,
+  Clock,
+  RefreshCw,
+  Search,
+  Save,
   ClipboardCheck,
+  AlertCircle,
 } from "lucide-react";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-).replace(/\/$/, "");
+  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
+).replace(/\/+$/, "");
 
-const STATUSES = ["Present", "Absent", "Late", "Leave"];
+const API_ROOT = API_BASE.endsWith("/api")
+  ? API_BASE
+  : `${API_BASE}/api`;
 
-const STATUS_STYLES = {
-  Present: "bg-green-100 text-green-800 border-green-300",
-  Absent: "bg-red-100 text-red-800 border-red-300",
-  Late: "bg-amber-100 text-amber-800 border-amber-300",
-  Leave: "bg-blue-100 text-blue-800 border-blue-300",
+const STATUSES = ["Present", "Absent", "Late", "Half Day", "Leave"];
+
+const getToday = () => {
+  const date = new Date();
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000)
+    .toISOString()
+    .slice(0, 10);
 };
 
-function getToday() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-}
-
-function getStudentName(student) {
-  return (
-    student.name ||
-    student.studentName ||
-    [student.firstName, student.lastName].filter(Boolean).join(" ") ||
-    "Unnamed Student"
-  );
-}
-
-function getClassName(student) {
-  const value =
-    student.className ??
-    student.class?.name ??
-    student.class?.className ??
-    student.class ??
-    "";
-
-  return typeof value === "object"
-    ? value?.name || value?.className || ""
-    : String(value);
-}
-
-function getSectionName(student) {
-  const value =
-    student.sectionName ??
-    student.section?.name ??
-    student.section?.sectionName ??
-    student.section ??
-    "";
-
-  return typeof value === "object"
-    ? value?.name || value?.sectionName || ""
-    : String(value);
-}
-
-function getStudentId(student) {
-  return student._id || student.id || student.studentId;
-}
-
 export default function StudentAttendancePage() {
-  const [students, setStudents] = useState([]);
-  const [attendance, setAttendance] = useState({});
   const [date, setDate] = useState(getToday());
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
+  const [students, setStudents] = useState([]);
+  const [className, setClassName] = useState("");
+  const [section, setSection] = useState("");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+
+  const [attendance, setAttendance] = useState({});
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function loadStudents() {
+  const loadAttendance = useCallback(async () => {
+    if (!date) return;
+
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      const response = await fetch(`${API_BASE}/api/students`);
-      if (!response.ok) {
-        throw new Error(`Students API error: ${response.status}`);
+      const params = new URLSearchParams({ date });
+
+      if (className) params.set("className", className);
+      if (section) params.set("section", section);
+
+      const response = await fetch(
+        `${API_ROOT}/attendance?${params.toString()}`,
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Attendance load nahi hui.");
       }
 
-      const result = await response.json();
-      const list = Array.isArray(result)
-        ? result
-        : result.data?.students ||
-          result.data ||
-          result.students ||
-          result._data?.students ||
-          result._data ||
-          [];
-
-      if (!Array.isArray(list)) {
-        throw new Error("Students API ka response format sahi nahi hai.");
-      }
+      const list = Array.isArray(data.students) ? data.students : [];
 
       setStudents(list);
 
-      setAttendance((previous) => {
-        const next = {};
-        list.forEach((student) => {
-          const id = getStudentId(student);
-          if (id) {
-            next[id] = previous[id] || {
-              status: "Present",
-              remark: "",
-            };
-          }
-        });
-        return next;
+      const initialAttendance = {};
+
+      list.forEach((student) => {
+        initialAttendance[student._id] = {
+          status: student.attendance?.status || "",
+          remarks: student.attendance?.remarks || "",
+          savedStatus: student.attendance?.status || "",
+          savedRemarks: student.attendance?.remarks || "",
+        };
       });
+
+      setAttendance(initialAttendance);
     } catch (err) {
-      setError(err.message || "Students load nahi hue.");
+      setStudents([]);
+      setAttendance({});
+      setError(err.message || "Attendance load karne mein error.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [date, className, section]);
 
   useEffect(() => {
-    loadStudents();
-  }, []);
+    loadAttendance();
+  }, [loadAttendance]);
 
-  const classes = useMemo(() => {
-    return [...new Set(students.map(getClassName).filter(Boolean))].sort(
-      (a, b) => a.localeCompare(b, undefined, { numeric: true })
-    );
-  }, [students]);
+  const classOptions = useMemo(
+    () =>
+      [...new Set(students.map((s) => s.className).filter(Boolean))].sort(),
+    [students]
+  );
 
-  const sections = useMemo(() => {
-    return [
-      ...new Set(
-        students
-          .filter(
-            (student) =>
-              !selectedClass || getClassName(student) === selectedClass
-          )
-          .map(getSectionName)
-          .filter(Boolean)
-      ),
-    ].sort();
-  }, [students, selectedClass]);
+  const sectionOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          students
+            .filter((s) => !className || s.className === className)
+            .map((s) => s.section)
+            .filter(Boolean)
+        ),
+      ].sort(),
+    [students, className]
+  );
 
   const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      const classMatch =
-        !selectedClass || getClassName(student) === selectedClass;
-      const sectionMatch =
-        !selectedSection || getSectionName(student) === selectedSection;
-      const query = search.trim().toLowerCase();
-      const text = [
-        getStudentName(student),
-        student.admissionNo,
-        student.admissionNumber,
-        student.rollNo,
-        student.rollNumber,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+    const query = search.trim().toLowerCase();
 
-      return classMatch && sectionMatch && text.includes(query);
+    return students.filter((student) => {
+      if (!query) return true;
+
+      const name =
+        `${student.firstName || ""} ${student.lastName || ""}`.toLowerCase();
+
+      return (
+        name.includes(query) ||
+        String(student.admissionNo || "").toLowerCase().includes(query) ||
+        String(student.rollNo || "").toLowerCase().includes(query)
+      );
     });
-  }, [students, selectedClass, selectedSection, search]);
+  }, [students, search]);
 
   const counts = useMemo(() => {
     const result = {
       Present: 0,
       Absent: 0,
       Late: 0,
+      "Half Day": 0,
       Leave: 0,
+      Unmarked: 0,
     };
 
-    filteredStudents.forEach((student) => {
-      const id = getStudentId(student);
-      const status = attendance[id]?.status;
-      if (result[status] !== undefined) result[status]++;
+    students.forEach((student) => {
+      const status = attendance[student._id]?.status;
+
+      if (STATUSES.includes(status)) result[status]++;
+      else result.Unmarked++;
     });
 
     return result;
-  }, [filteredStudents, attendance]);
+  }, [students, attendance]);
 
-  function updateStudent(id, field, value) {
+  const updateAttendance = (studentId, field, value) => {
     setAttendance((previous) => ({
       ...previous,
-      [id]: {
-        status: previous[id]?.status || "Present",
-        remark: previous[id]?.remark || "",
+      [studentId]: {
+        ...previous[studentId],
         [field]: value,
       },
     }));
-    setMessage("");
-  }
+  };
 
-  function markAll(status) {
-    setAttendance((previous) => {
-      const next = { ...previous };
+  const isChanged = (studentId) => {
+    const item = attendance[studentId];
 
-      filteredStudents.forEach((student) => {
-        const id = getStudentId(student);
-        if (id) {
-          next[id] = {
-            status,
-            remark: previous[id]?.remark || "",
-          };
-        }
-      });
+    return (
+      item &&
+      (item.status !== item.savedStatus ||
+        item.remarks !== item.savedRemarks)
+    );
+  };
 
-      return next;
+  const saveOne = async (student) => {
+    const item = attendance[student._id];
+
+    if (!item?.status || !STATUSES.includes(item.status)) {
+      setError(`${student.firstName}: attendance status select karein.`);
+      return false;
+    }
+
+    const response = await fetch(`${API_ROOT}/attendance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId: student._id,
+        date,
+        status: item.status,
+        remarks: item.remarks || "",
+      }),
     });
 
-    setMessage("");
-  }
+    const data = await response.json();
 
-  async function saveAttendance() {
-    if (!filteredStudents.length) {
-      setError("Attendance save karne ke liye students nahi hain.");
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Attendance save nahi hui.");
+    }
+
+    setAttendance((previous) => ({
+      ...previous,
+      [student._id]: {
+        ...previous[student._id],
+        savedStatus: previous[student._id].status,
+        savedRemarks: previous[student._id].remarks,
+      },
+    }));
+
+    return true;
+  };
+
+  const handleSaveOne = async (student) => {
+    setError("");
+    setMessage("");
+    setSaving(true);
+
+    try {
+      await saveOne(student);
+      setMessage(`${student.firstName} ki attendance save ho gayi.`);
+    } catch (err) {
+      setError(err.message || "Save karne mein error.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    setError("");
+    setMessage("");
+
+    const changedStudents = filteredStudents.filter((student) =>
+      isChanged(student._id)
+    );
+
+    if (!changedStudents.length) {
+      setMessage("Koi changed attendance nahi hai.");
       return;
     }
 
-    if (!selectedClass) {
-      setError("Pehle class select karein.");
+    const invalidStudent = changedStudents.find(
+      (student) => !STATUSES.includes(attendance[student._id]?.status)
+    );
+
+    if (invalidStudent) {
+      setError(
+        `${invalidStudent.firstName} ${invalidStudent.lastName || ""} ka status select karein.`
+      );
       return;
     }
 
     setSaving(true);
-    setError("");
-    setMessage("");
 
     try {
-      const records = filteredStudents
-        .map((student) => {
-          const id = getStudentId(student);
-          if (!id) return null;
+      const results = await Promise.allSettled(
+        changedStudents.map((student) => saveOne(student))
+      );
 
-          return {
-            studentId: id,
-            admissionNo:
-              student.admissionNo ||
-              student.admissionNumber ||
-              "",
-            rollNo: student.rollNo || student.rollNumber || "",
-            studentName: getStudentName(student),
-            status: attendance[id]?.status || "Present",
-            remark: attendance[id]?.remark || "",
-          };
-        })
-        .filter(Boolean);
+      const failed = results.filter((result) => result.status === "rejected");
 
-      const response = await fetch(`${API_BASE}/api/attendance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date,
-          className: selectedClass,
-          section: selectedSection,
-          attendance: records,
-        }),
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || result._status === false) {
+      if (failed.length) {
         throw new Error(
-          result._message ||
-            result.message ||
-            `Attendance save failed (${response.status}).`
+          `${changedStudents.length - failed.length} records saved. ${failed.length} records failed: ${failed[0].reason?.message || "Unknown error"}`
         );
       }
 
-      setMessage(
-        result._message || "Attendance save request successful."
-      );
+      setMessage(`${changedStudents.length} students ki attendance saved successfully.`);
     } catch (err) {
-      setError(
-        `${err.message} Backend ka actual attendance route aur request format check karein.`
-      );
+      setError(err.message || "Attendance save nahi hui.");
     } finally {
       setSaving(false);
     }
-  }
+  };
+
+  const changedCount = filteredStudents.filter((student) =>
+    isChanged(student._id)
+  ).length;
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 text-slate-800 sm:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="min-h-screen space-y-6 bg-slate-50 p-4 text-slate-800 sm:p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <ClipboardCheck size={18} />
+            Student Management
+          </div>
+
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Student Attendance
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Daily student attendance mark, update aur manage karein.
+          </p>
+        </div>
+
+        <button
+          onClick={loadAttendance}
+          disabled={loading || saving}
+          className="inline-flex items-center justify-center gap-2 border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50"
+        >
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <StatCard label="Total Students" value={students.length} icon={<Users size={19} />} />
+        <StatCard label="Present" value={counts.Present} icon={<CheckCircle2 size={19} />} />
+        <StatCard label="Absent" value={counts.Absent} icon={<XCircle size={19} />} />
+        <StatCard label="Late" value={counts.Late} icon={<Clock size={19} />} />
+        <StatCard label="Leave" value={counts.Leave} icon={<CalendarDays size={19} />} />
+        <StatCard label="Unmarked" value={counts.Unmarked} icon={<AlertCircle size={19} />} />
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {message && (
+        <div className="border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          {message}
+        </div>
+      )}
+
+      <section className="border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="mb-4 font-bold">Attendance Filters</h2>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Attendance Date">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="field"
+            />
+          </Field>
+
+          <Field label="Class">
+            <select
+              value={className}
+              onChange={(e) => {
+                setClassName(e.target.value);
+                setSection("");
+              }}
+              className="field"
+            >
+              <option value="">All Classes</option>
+              {classOptions.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Section">
+            <select
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              className="field"
+            >
+              <option value="">All Sections</option>
+              {sectionOptions.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Search Student">
+            <div className="relative">
+              <Search
+                size={17}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Name, admission no. or roll no."
+                className="field pl-9"
+              />
+            </div>
+          </Field>
+        </div>
+      </section>
+
+      <section className="border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-emerald-700">
-              SCHOOL MANAGEMENT
-            </p>
-            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
-              Student Attendance
-            </h1>
+            <h2 className="font-bold">Student Attendance List</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Students ki daily attendance manage karein.
+              {filteredStudents.length} students found · {changedCount} unsaved changes
             </p>
           </div>
 
           <button
-            type="button"
-            onClick={loadStudents}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50"
+            onClick={handleSaveAll}
+            disabled={saving || loading || changedCount === 0}
+            className="inline-flex items-center justify-center gap-2 bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <RefreshCw size={16} />
-            Refresh Students
+            <Save size={17} />
+            {saving ? "Saving..." : "Save All Changes"}
           </button>
         </div>
 
-        {error && (
-          <div className="border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-4 py-3">#</th>
+                <th className="px-4 py-3">Student</th>
+                <th className="px-4 py-3">Admission No.</th>
+                <th className="px-4 py-3">Class / Section</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Remarks</th>
+                <th className="px-4 py-3">Action</th>
+              </tr>
+            </thead>
 
-        {message && (
-          <div className="border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-            {message}
-          </div>
-        )}
+            <tbody className="divide-y divide-slate-100">
+              {!loading && filteredStudents.map((student, index) => {
+                const item = attendance[student._id] || {};
+                const changed = isChanged(student._id);
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              label: "Total Students",
-              value: filteredStudents.length,
-              icon: Users,
-              color: "text-slate-700",
-            },
-            {
-              label: "Present",
-              value: counts.Present,
-              icon: CheckCircle2,
-              color: "text-green-700",
-            },
-            {
-              label: "Absent",
-              value: counts.Absent,
-              icon: XCircle,
-              color: "text-red-700",
-            },
-            {
-              label: "Late / Leave",
-              value: counts.Late + counts.Leave,
-              icon: Clock3,
-              color: "text-amber-700",
-            },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.label}
-                className="border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">
-                    {item.label}
-                  </span>
-                  <Icon size={20} className={item.color} />
-                </div>
-                <p className={`mt-3 text-3xl font-bold ${item.color}`}>
-                  {item.value}
-                </p>
-              </div>
-            );
-          })}
-        </section>
+                return (
+                  <tr key={student._id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-slate-500">{index + 1}</td>
 
-        <section className="border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <ClipboardCheck size={20} className="text-emerald-700" />
-            <h2 className="font-bold">Attendance Filters</h2>
-          </div>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold">
+                        {student.firstName} {student.lastName}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Roll No: {student.rollNo || "-"}
+                      </div>
+                    </td>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="text-sm font-medium">
-              Attendance Date
-              <div className="mt-1 flex items-center gap-2 border border-slate-300 px-3">
-                <CalendarDays size={17} className="text-slate-500" />
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="min-w-0 flex-1 py-2.5 outline-none"
-                />
-              </div>
-            </label>
+                    <td className="px-4 py-3">{student.admissionNo || "-"}</td>
 
-            <label className="text-sm font-medium">
-              Class
-              <select
-                value={selectedClass}
-                onChange={(event) => {
-                  setSelectedClass(event.target.value);
-                  setSelectedSection("");
-                }}
-                className="mt-1 w-full border border-slate-300 bg-white px-3 py-2.5 outline-none"
-              >
-                <option value="">Select Class</option>
-                {classes.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
+                    <td className="px-4 py-3">
+                      {student.className} / {student.section || "-"}
+                    </td>
 
-            <label className="text-sm font-medium">
-              Section
-              <select
-                value={selectedSection}
-                onChange={(event) => setSelectedSection(event.target.value)}
-                className="mt-1 w-full border border-slate-300 bg-white px-3 py-2.5 outline-none"
-              >
-                <option value="">All Sections</option>
-                {sections.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
+                    <td className="px-4 py-3">
+                      <select
+                        value={item.status || ""}
+                        onChange={(e) =>
+                          updateAttendance(student._id, "status", e.target.value)
+                        }
+                        className="w-32 border border-slate-200 bg-white px-2 py-2 text-sm outline-none focus:border-emerald-600"
+                      >
+                        <option value="">Select Status</option>
+                        {STATUSES.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </td>
 
-            <label className="text-sm font-medium">
-              Search Student
-              <div className="mt-1 flex items-center gap-2 border border-slate-300 px-3">
-                <Search size={17} className="text-slate-500" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Name, admission no..."
-                  className="min-w-0 flex-1 py-2.5 outline-none"
-                />
-              </div>
-            </label>
-          </div>
-        </section>
+                    <td className="px-4 py-3">
+                      <input
+                        value={item.remarks || ""}
+                        onChange={(e) =>
+                          updateAttendance(student._id, "remarks", e.target.value)
+                        }
+                        placeholder="Optional remarks"
+                        className="w-40 border border-slate-200 px-2 py-2 text-sm outline-none focus:border-emerald-600"
+                      />
+                    </td>
 
-        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="font-bold">Student List</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                {selectedClass || "No class selected"}
-                {selectedSection ? ` • Section ${selectedSection}` : ""}
-                {" • "}
-                {date}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => markAll("Present")}
-                className="border border-green-300 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-50"
-              >
-                All Present
-              </button>
-              <button
-                type="button"
-                onClick={() => markAll("Absent")}
-                className="border border-red-300 px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-50"
-              >
-                All Absent
-              </button>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="p-12 text-center text-slate-500">
-              Students load ho rahe hain...
-            </div>
-          ) : filteredStudents.length === 0 ? (
-            <div className="p-12 text-center">
-              <Users size={35} className="mx-auto text-slate-300" />
-              <p className="mt-3 font-semibold">Students nahi mile</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Students add karein ya class/search filter check karein.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="bg-slate-100 text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-4 py-3">Student</th>
-                    <th className="px-4 py-3">Admission No.</th>
-                    <th className="px-4 py-3">Class / Section</th>
-                    <th className="px-4 py-3">Attendance Status</th>
-                    <th className="px-4 py-3">Remark</th>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleSaveOne(student)}
+                        disabled={saving || !changed}
+                        className="inline-flex items-center gap-1 bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Save size={14} />
+                        Save
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredStudents.map((student, index) => {
-                    const id = getStudentId(student);
-                    const record = attendance[id] || {
-                      status: "Present",
-                      remark: "",
-                    };
+                );
+              })}
 
-                    return (
-                      <tr key={id || index} className="hover:bg-slate-50">
-                        <td className="px-4 py-4 text-slate-500">
-                          {index + 1}
-                        </td>
-                        <td className="px-4 py-4 font-semibold">
-                          {getStudentName(student)}
-                        </td>
-                        <td className="px-4 py-4">
-                          {student.admissionNo ||
-                            student.admissionNumber ||
-                            student.rollNo ||
-                            student.rollNumber ||
-                            "—"}
-                        </td>
-                        <td className="px-4 py-4">
-                          {getClassName(student) || "—"}
-                          {getSectionName(student)
-                            ? ` / ${getSectionName(student)}`
-                            : ""}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-1.5">
-                            {STATUSES.map((status) => (
-                              <button
-                                key={status}
-                                type="button"
-                                onClick={() =>
-                                  updateStudent(id, "status", status)
-                                }
-                                className={`border px-2 py-1.5 text-xs font-semibold ${
-                                  record.status === status
-                                    ? STATUS_STYLES[status]
-                                    : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                                }`}
-                              >
-                                {status}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <input
-                            value={record.remark}
-                            onChange={(event) =>
-                              updateStudent(id, "remark", event.target.value)
-                            }
-                            placeholder="Optional"
-                            className="w-36 border border-slate-300 px-2 py-2 outline-none focus:border-emerald-600"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+              {!loading && filteredStudents.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                    Is date aur filter ke liye koi student nahi mila.
+                  </td>
+                </tr>
+              )}
 
-          <div className="flex flex-col justify-between gap-3 border-t border-slate-200 p-4 sm:flex-row sm:items-center">
-            <p className="text-sm text-slate-500">
-              {filteredStudents.length} students • {counts.Present} present •{" "}
-              {counts.Absent} absent
-            </p>
+              {loading && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                    Attendance load ho rahi hai...
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-            <button
-              type="button"
-              onClick={saveAttendance}
-              disabled={saving || loading || filteredStudents.length === 0}
-              className="inline-flex items-center justify-center gap-2 bg-emerald-800 px-5 py-3 font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Save size={17} />
-              {saving ? "Saving..." : "Save Attendance"}
-            </button>
-          </div>
-        </section>
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+          Present, Absent, Late, Half Day aur Leave supported hain. Existing
+          attendance ko dobara save karne par update kiya jayega.
+        </div>
+      </section>
+
+      <style jsx>{`
+        .field {
+          width: 100%;
+          border: 1px solid #e2e8f0;
+          background: white;
+          padding: 10px 12px;
+          font-size: 14px;
+          outline: none;
+        }
+        .field:focus {
+          border-color: #047857;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block space-y-2">
+      <span className="block text-sm font-medium text-slate-600">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function StatCard({ label, value, icon }) {
+  return (
+    <div className="flex items-center gap-3 border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-emerald-50 text-emerald-700">
+        {icon}
       </div>
-    </main>
+      <div>
+        <p className="text-xs text-slate-500">{label}</p>
+        <p className="text-xl font-bold">{value}</p>
+      </div>
+    </div>
   );
 }
