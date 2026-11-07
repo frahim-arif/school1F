@@ -197,10 +197,10 @@ export default function Home() {
     };
   }, []);
 
-  const schoolName = school.schoolName || school.name || "Adarsha Markaz Academy";
+  const schoolName = school.schoolName || school.name || "Adarsha Markaz Academy Laharighat";
   const schoolPhone = school.phone || school.contactNumber || "";
   const schoolEmail = school.email || "";
-  const schoolAddress = school.address || "";
+  const schoolAddress = school.address || ""; 
   // Principal details (fixed, not loaded from the API)
   const principalName = "Md Baharul Islam";
   const principalQualification = "MM, MA, PhD (Scholar)";
