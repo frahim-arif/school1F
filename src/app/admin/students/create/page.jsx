@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import StudentFormStepper from "../../../components/students/StudentFormStepper";
 import {
   Upload,
@@ -10,6 +9,10 @@ import {
   ArrowLeft,
   LoaderCircle,
   AlertCircle,
+  Eye,
+  EyeOff,
+  Copy,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,17 +36,20 @@ const initialForm = {
   section: "",
   session: "",
   address: "",
+  username: "",
+  password: "",
 };
 
 export default function CreateStudentPage() {
-  const router = useRouter();
-
   const [form, setForm] = useState(initialForm);
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -69,10 +75,32 @@ export default function CreateStudentPage() {
     setError("");
   };
 
+  const handleCopyCredentials = async () => {
+    if (!createdCredentials) return;
+
+    const text = [
+      "Adarsha Markaz Academy Laharighat",
+      `Student Name: ${createdCredentials.name}`,
+      `Admission No: ${createdCredentials.admissionNo}`,
+      `Username: ${createdCredentials.username}`,
+      `Password: ${createdCredentials.password}`,
+      "Student Login: https://www.amalaharighat.com/student/login",
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Unable to copy credentials. Please copy them manually.");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setCreatedCredentials(null);
 
     const nameParts = form.fullName.trim().split(/\s+/);
     const firstName = nameParts.shift() || "";
@@ -101,11 +129,33 @@ export default function CreateStudentPage() {
       return;
     }
 
+    const username = form.username.trim().toLowerCase();
+
+    if (!username) {
+      setError("Please enter a student username.");
+      return;
+    }
+
+    if (username.length < 4) {
+      setError("Username must be at least 4 characters.");
+      return;
+    }
+
+    if (!/^[a-z0-9._-]+$/.test(username)) {
+      setError(
+        "Username can contain only lowercase letters, numbers, dots, underscores and hyphens."
+      );
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     try {
       setSaving(true);
 
-      // Current backend Student model accepts JSON.
-      // Photo preview works locally; actual photo upload needs backend support.
       const payload = {
         admissionNo: form.admissionNo.trim(),
         rollNo: Number(form.rollNo),
@@ -124,6 +174,8 @@ export default function CreateStudentPage() {
         bloodGroup: form.bloodGroup,
         photo: "",
         status: "Active",
+        username,
+        password: form.password,
       };
 
       const response = await fetch(`${API_ROOT}/api/students`, {
@@ -144,9 +196,18 @@ export default function CreateStudentPage() {
         );
       }
 
-      setSuccess("Student saved successfully!");
-      router.push("/admin/students");
-      router.refresh();
+      setCreatedCredentials({
+        name: form.fullName.trim(),
+        admissionNo: form.admissionNo.trim(),
+        username,
+        password: form.password,
+      });
+
+      setSuccess("Student and login credentials created successfully!");
+
+      setForm(initialForm);
+      setPhoto(null);
+      setPreview(null);
     } catch (err) {
       setError(
         err.message ||
@@ -204,8 +265,87 @@ export default function CreateStudentPage() {
         )}
 
         {success && (
-          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
-            {success}
+          <div className="mb-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
+            <CheckCircle size={20} />
+            <span>{success}</span>
+          </div>
+        )}
+
+        {createdCredentials && (
+          <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+            <h3 className="flex items-center gap-2 text-xl font-bold text-emerald-800">
+              <CheckCircle size={22} />
+              Student Login Created Successfully
+            </h3>
+
+            <p className="mt-2 text-sm text-emerald-700">
+              Save these credentials and share them with the student.
+            </p>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Student Name
+                </p>
+                <p className="mt-1 font-bold text-slate-800">
+                  {createdCredentials.name}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Admission Number
+                </p>
+                <p className="mt-1 font-bold text-slate-800">
+                  {createdCredentials.admissionNo}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Username
+                </p>
+                <p className="mt-1 break-all font-bold text-slate-800">
+                  {createdCredentials.username}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Password
+                </p>
+                <p className="mt-1 break-all font-bold text-slate-800">
+                  {createdCredentials.password}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                Student Login URL
+              </p>
+              <p className="mt-1 break-all font-semibold text-emerald-800">
+                https://www.amalaharighat.com/student/login
+              </p>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleCopyCredentials}
+                className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800"
+              >
+                {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                {copied ? "Copied!" : "Copy Credentials"}
+              </button>
+
+              <Link
+                href="/admin/students"
+                className="rounded-xl border border-emerald-700 px-5 py-3 font-semibold text-emerald-800 hover:bg-emerald-100"
+              >
+                Go to Students List
+              </Link>
+            </div>
           </div>
         )}
 
@@ -234,9 +374,7 @@ export default function CreateStudentPage() {
           <p className="mt-3 text-sm text-slate-500">
             Upload Student Photo (optional)
           </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Maximum 5 MB
-          </p>
+          <p className="mt-1 text-xs text-slate-400">Maximum 5 MB</p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -394,6 +532,64 @@ export default function CreateStudentPage() {
 
         <div className="my-10 border-t border-slate-200" />
 
+        <h2 className="mb-2 text-2xl font-bold text-slate-800">
+          Student Login Credentials
+        </h2>
+
+        <p className="mb-6 text-sm text-slate-500">
+          Create a unique username and password for the student.
+          Share these credentials with the student.
+        </p>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <label className={labelClass}>Student Username *</label>
+            <input
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="e.g. ama2026001"
+              autoComplete="off"
+              className={inputClass}
+              required
+              minLength={4}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Minimum 4 characters. Must be unique.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClass}>Student Password *</label>
+            <div className="relative">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={handleChange}
+                placeholder="Create student password"
+                autoComplete="new-password"
+                className={`${inputClass} pr-12`}
+                required
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Minimum 6 characters.
+            </p>
+          </div>
+        </div>
+
+        <div className="my-10 border-t border-slate-200" />
+
         <h2 className="mb-6 text-2xl font-bold text-slate-800">
           Academic Information
         </h2>
@@ -464,7 +660,7 @@ export default function CreateStudentPage() {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !!createdCredentials}
             className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
