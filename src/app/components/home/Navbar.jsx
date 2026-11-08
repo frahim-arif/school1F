@@ -157,7 +157,7 @@ export default function Navbar() {
           {/* DESKTOP LOGIN */}
           <div className="hidden items-center gap-3 lg:flex">
             <Link
-              href="/login"
+              href="/student/login"
               className="whitespace-nowrap rounded-xl border border-pink-200/30 px-4 py-2.5 text-sm font-semibold text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-300/15"
             >
               Student Login
@@ -268,7 +268,7 @@ export default function Navbar() {
             ))}
 
             <Link
-              href="/login"
+              href="/student/login"
               onClick={closeMenu}
               className="mt-6 block rounded-xl border border-pink-200/30 py-3 text-center font-semibold text-pink-50 transition hover:bg-pink-300/15"
             >
