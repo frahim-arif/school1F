@@ -1,313 +1,301 @@
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  LockKeyhole,
-  Mail,
-  Eye,
-  EyeOff,
-  ShieldCheck,
-  GraduationCap,
-  ArrowRight,
-  Loader2,
-  AlertCircle,
-  BookOpen,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { Menu, X, ChevronRight, MapPin } from "lucide-react";
 
-const SCHOOL_NAME = "Adarsha Markaz Academy";
+import logo from "../../../images/logo.png";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
-).replace(/\/+$/, "");
+const schoolName = "Adarsha Markaz Academy Laharighat";
+const schoolLocation = "Laharighat, Morigaon, Assam";
 
-const API_ROOT = API_BASE.endsWith("/api")
-  ? API_BASE
-  : `${API_BASE}/api`;
+const menu = [
+  { name: "Home", href: "/#home" },
+  { name: "About", href: "/#about" },
+  { name: "Academics", href: "/#academics" },
+  { name: "Facilities", href: "/#facilities" },
+  { name: "Gallery", href: "/#gallery" },
+  { name: "Contact", href: "/#contact" },
+];
 
-export default function AdminLoginPage() {
-  const router = useRouter();
+export default function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+    window.addEventListener("scroll", handleScroll);
+    handleScroll();
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [pathname]);
 
-    if (error) setError("");
-  };
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!mobileOpen) return;
 
-    if (!form.email.trim() || !form.password) {
-      setError("Please enter your email and password.");
-      return;
-    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-    try {
-      setLoading(true);
-      setError("");
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
 
-      const response = await fetch(`${API_ROOT}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email.trim(),
-          password: form.password,
-        }),
-      });
+    window.addEventListener("keydown", handleEscape);
 
-      const data = await response.json();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [mobileOpen]);
 
-      if (!response.ok || !data.success || !data.token) {
-        throw new Error(
-          data.message || "Invalid email or password."
-        );
+  const closeMenu = () => setMobileOpen(false);
+
+  const handleNavigation = (href) => {
+    closeMenu();
+
+    if (href.startsWith("/#") && pathname === "/") {
+      const sectionId = href.substring(2);
+
+      if (sectionId === "home") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
       }
 
-      localStorage.setItem("token", data.token);
+      const section = document.getElementById(sectionId);
 
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
+      if (section) {
+        section.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }
-
-      router.replace("/admin/dashboard");
-    } catch (err) {
-      setError(
-        err.message || "Unable to login. Please try again."
-      );
-    } finally {
-      setLoading(false);
     }
   };
+
+  const navLinkClass =
+    "group relative whitespace-nowrap px-3.5 py-2 text-sm font-semibold text-pink-50/90 transition hover:text-white xl:px-4";
+
+  const mobileLinkClass =
+    "flex items-center justify-between rounded-xl px-4 py-3 font-semibold text-pink-100/85 transition hover:bg-pink-300/15 hover:text-white";
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f5f6ef] px-4 py-10">
-      {/* Background decoration */}
-      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-emerald-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-amber-200/40 blur-3xl" />
+    <>
+      <header
+        className={`fixed inset-x-0 top-0 z-50 border-b border-pink-300/25 backdrop-blur-xl transition-all duration-300 ${
+          scrolled
+            ? "bg-[#22110b]/95 shadow-xl shadow-black/40"
+            : "bg-[#3e2218]/85"
+        }`}
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 bg-gradient-to-r from-amber-300 via-pink-400 to-rose-500"
+        />
 
-      <div className="relative grid w-full max-w-5xl overflow-hidden border border-emerald-950/10 bg-white shadow-2xl shadow-emerald-950/10 lg:grid-cols-2">
-        {/* Left panel */}
-        <section className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#102c23] via-[#174737] to-[#0b211b] p-12 text-white lg:flex">
-          <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full border border-white/10" />
-          <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full border border-white/10" />
-          <div className="absolute -bottom-28 -left-20 h-80 w-80 rounded-full bg-emerald-300/10 blur-2xl" />
+        <div
+          className={`mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 transition-all duration-300 sm:px-6 ${
+            scrolled ? "min-h-[4.5rem]" : "min-h-20"
+          }`}
+        >
+          {/* LOGO */}
+          <Link
+            href="/"
+            onClick={closeMenu}
+            className="flex min-w-0 items-center gap-3"
+          >
+            <Image
+              src={logo}
+              alt={`${schoolName} logo`}
+              priority
+              className={`w-auto shrink-0 drop-shadow-[0_2px_10px_rgba(244,114,182,0.45)] transition-all duration-300 ${
+                scrolled ? "h-11 sm:h-12" : "h-12 sm:h-14"
+              }`}
+            />
 
-          <div className="relative">
-            <div className="mb-10 flex h-16 w-16 items-center justify-center border border-amber-300/30 bg-white/10">
-              <GraduationCap size={35} className="text-amber-300" />
-            </div>
-
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-amber-300">
-              School Administration
-            </p>
-
-            <h1 className="max-w-md font-serif text-4xl font-bold leading-tight">
-              Welcome to Your School Management Portal
-            </h1>
-
-            <p className="mt-6 max-w-md text-sm leading-7 text-emerald-50/75">
-              Manage students, attendance, academics and school
-              activities through one secure administration system.
-            </p>
-          </div>
-
-          <div className="relative space-y-5">
-            <div className="flex items-center gap-4 border border-white/10 bg-white/5 p-4">
-              <ShieldCheck className="shrink-0 text-amber-300" size={27} />
-              <div>
-                <p className="font-semibold">Secure Administration</p>
-                <p className="mt-1 text-xs text-emerald-50/60">
-                  Protected access for authorized staff.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 border border-white/10 bg-white/5 p-4">
-              <BookOpen className="shrink-0 text-amber-300" size={27} />
-              <div>
-                <p className="font-semibold">Complete School Management</p>
-                <p className="mt-1 text-xs text-emerald-50/60">
-                  Organized school administration in one place.
-                </p>
-              </div>
-            </div>
-
-            <p className="pt-4 text-xs text-emerald-50/50">
-              © {new Date().getFullYear()} {SCHOOL_NAME}
-            </p>
-          </div>
-        </section>
-
-        {/* Right login panel */}
-        <section className="flex items-center justify-center px-6 py-10 sm:px-12 lg:px-14">
-          <div className="w-full max-w-md">
-            {/* Mobile branding */}
-            <div className="mb-9 text-center lg:hidden">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center bg-[#153d30]">
-                <GraduationCap size={36} className="text-amber-300" />
-              </div>
-
-              <h1 className="font-serif text-xl font-bold text-[#173c30]">
-                {SCHOOL_NAME}
-              </h1>
-              <p className="mt-1 text-xs text-gray-500">
-                Laharighat, Morigaon, Assam
-              </p>
-            </div>
-
-            <div className="mb-8">
-              <div className="mb-5 hidden h-1 w-14 bg-amber-500 lg:block" />
-
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">
-                Administration Portal
-              </p>
-
-              <h2 className="mt-3 font-serif text-3xl font-bold text-[#17372c]">
-                Admin Login
+            <div className="min-w-0">
+              <h2 className="font-serif text-sm font-black leading-tight text-pink-50 sm:text-lg md:text-xl">
+                {schoolName}
               </h2>
 
-              <p className="mt-3 text-sm leading-6 text-gray-500">
-                Sign in with your authorized administrator account
-                to continue.
+              <p className="mt-1 flex items-center gap-1 text-sm leading-tight text-pink-200/80 sm:text-base">
+                <MapPin size={14} className="shrink-0 text-pink-300" />
+                <span className="truncate">{schoolLocation}</span>
               </p>
             </div>
+          </Link>
 
-            {error && (
-              <div
-                role="alert"
-                className="mb-5 flex items-start gap-3 border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          {/* DESKTOP NAVIGATION */}
+          <nav
+            aria-label="Main navigation"
+            className="hidden items-center gap-1 lg:flex"
+          >
+            {menu.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => handleNavigation(item.href)}
+                className={navLinkClass}
               >
-                <AlertCircle size={19} className="mt-0.5 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+                {item.name}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="mb-2 block text-sm font-semibold text-gray-700"
-                >
-                  Email Address
-                </label>
+                <span className="absolute inset-x-3.5 bottom-0.5 h-0.5 origin-left scale-x-0 rounded-full bg-gradient-to-r from-pink-300 to-rose-500 transition-transform duration-300 group-hover:scale-x-100 xl:inset-x-4" />
+              </Link>
+            ))}
+          </nav>
 
-                <div className="relative">
-                  <Mail
-                    size={19}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
+          {/* DESKTOP LOGIN */}
+          <div className="hidden items-center gap-3 lg:flex">
+            <Link
+              href="/login"
+              className="whitespace-nowrap rounded-xl border border-pink-200/30 px-4 py-2.5 text-sm font-semibold text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-300/15"
+            >
+              Student Login
+            </Link>
 
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="username"
-                    placeholder="Enter your admin email"
-                    value={form.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full border border-gray-200 bg-[#fafbf8] py-3.5 pl-12 pr-4 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label
-                    htmlFor="password"
-                    className="text-sm font-semibold text-gray-700"
-                  >
-                    Password
-                  </label>
-                </div>
-
-                <div className="relative">
-                  <LockKeyhole
-                    size={19}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="Enter your password"
-                    value={form.password}
-                    onChange={handleChange}
-                    required
-                    className="w-full border border-gray-200 bg-[#fafbf8] py-3.5 pl-12 pr-12 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10"
-                  />
-
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-emerald-800"
-                  >
-                    {showPassword ? (
-                      <EyeOff size={19} />
-                    ) : (
-                      <Eye size={19} />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="group flex w-full items-center justify-center gap-3 bg-[#173d30] px-5 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-950/15 transition hover:bg-[#0d2d22] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={19} className="animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    Sign In to Dashboard
-                    <ArrowRight
-                      size={19}
-                      className="transition-transform group-hover:translate-x-1"
-                    />
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-8 border-t border-gray-100 pt-6 text-center">
-              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                <ShieldCheck size={15} className="text-emerald-700" />
-                Secure Admin Authentication
-              </div>
-
-              <p className="mt-4 text-xs leading-5 text-gray-400">
-                This portal is intended for authorized school
-                administrators only.
-              </p>
-            </div>
+            <Link
+              href="/login"
+              className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-pink-600/30 transition hover:from-pink-500 hover:to-rose-600"
+            >
+              Admin Login
+              <ChevronRight size={18} />
+            </Link>
           </div>
-        </section>
+
+          {/* MOBILE MENU BUTTON */}
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
+            onClick={() => setMobileOpen(true)}
+            className="shrink-0 rounded-xl border border-pink-200/20 bg-pink-300/10 p-2 text-pink-50 transition hover:bg-pink-300/20 focus:outline-none focus:ring-2 focus:ring-pink-300/60 lg:hidden"
+          >
+            <Menu size={26} />
+          </button>
+        </div>
+      </header>
+
+      {/* MOBILE MENU */}
+      <div
+        className={`fixed inset-0 z-[60] transition ${
+          mobileOpen
+            ? "visible opacity-100"
+            : "invisible pointer-events-none opacity-0"
+        }`}
+        aria-hidden={!mobileOpen}
+      >
+        {/* OVERLAY */}
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          tabIndex={mobileOpen ? 0 : -1}
+          onClick={closeMenu}
+          className="absolute inset-0 h-full w-full cursor-default bg-[#1a0d08]/70 backdrop-blur-[2px]"
+        />
+
+        {/* MENU PANEL */}
+        <div
+          id="mobile-navigation"
+          className={`absolute right-0 top-0 flex h-full w-[min(20rem,85vw)] flex-col overflow-y-auto bg-gradient-to-b from-[#5a3425] via-[#3e2218] to-[#22110b] shadow-2xl shadow-black/50 transition-transform duration-300 ${
+            mobileOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-pink-500/25 blur-3xl"
+          />
+
+          {/* MOBILE HEADER */}
+          <div className="relative flex items-start justify-between gap-3 border-b border-pink-200/10 p-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <Image
+                src={logo}
+                alt={`${schoolName} logo`}
+                className="h-14 w-auto shrink-0 drop-shadow-[0_2px_10px_rgba(244,114,182,0.45)]"
+              />
+
+              <div className="min-w-0">
+                <h2 className="font-serif text-base font-black leading-tight text-pink-50">
+                  {schoolName}
+                </h2>
+
+                <p className="mt-1 text-xs text-pink-200/80">
+                  {schoolLocation}
+                </p>
+
+                <p className="mt-1 text-xs font-semibold text-pink-300">
+                  Established 2014
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={closeMenu}
+              className="shrink-0 rounded-xl p-2 text-pink-100 transition hover:bg-pink-300/15 focus:outline-none focus:ring-2 focus:ring-pink-300/60"
+            >
+              <X size={26} />
+            </button>
+          </div>
+
+          {/* MOBILE LINKS */}
+          <nav
+            aria-label="Mobile navigation"
+            className="relative space-y-1.5 p-5"
+          >
+            {menu.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => handleNavigation(item.href)}
+                className={mobileLinkClass}
+              >
+                {item.name}
+                <ChevronRight size={17} className="text-pink-300/70" />
+              </Link>
+            ))}
+
+            <Link
+              href="/login"
+              onClick={closeMenu}
+              className="mt-6 block rounded-xl border border-pink-200/30 py-3 text-center font-semibold text-pink-50 transition hover:bg-pink-300/15"
+            >
+              Student Login
+            </Link>
+
+            <Link
+              href="/login"
+              onClick={closeMenu}
+              className="mt-3 block rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 py-3 text-center font-bold text-white shadow-lg shadow-pink-600/30"
+            >
+              Admin Login
+            </Link>
+
+            {/* SCHOOL DETAILS */}
+            <div className="mt-5 rounded-xl border border-pink-200/15 bg-white/5 p-4 text-sm text-pink-100/80">
+              <p className="font-bold text-pink-50">
+                Nursery to Class XII
+              </p>
+              <p className="mt-1">School Timing: 9:00 AM – 12:35 PM</p>
+              <p className="mt-1">Board: ASSEB (Received Prior Permission)</p>
+              <p className="mt-1">Affiliated to Markazul Ma&apos;arif, Hojai</p>
+              <p className="mt-1">PIN: 782127</p>
+            </div>
+          </nav>
+        </div>
       </div>
-    </main>
+    </>
   );
 }
