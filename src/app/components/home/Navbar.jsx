@@ -166,7 +166,7 @@ export default function Navbar() {
             </Link>
 
             <Link
-              href="/admin/login"
+              href="/login"
               className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-pink-600/30 transition hover:from-pink-500 hover:to-rose-600"
             >
               Admin Login
@@ -280,7 +280,7 @@ export default function Navbar() {
             </Link>
 
             <Link
-              href="/admin/login"
+              href="/login"
               onClick={closeMenu}
               className="mt-3 block rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 py-3 text-center font-bold text-white shadow-lg shadow-pink-600/30"
             >
