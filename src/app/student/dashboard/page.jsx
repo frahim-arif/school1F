@@ -1,118 +1,592 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  GraduationCap,
   LayoutDashboard,
   UserRound,
-  CalendarCheck,
   Wallet,
+  ReceiptText,
+  GraduationCap,
+  CalendarDays,
   ClipboardList,
-  Clock,
-  BookOpen,
   Bell,
-  LogOut,
   Menu,
   X,
-  ChevronRight,
+  LogOut,
   Loader2,
+  IndianRupee,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  RefreshCw,
   School,
+  BookOpen,
 } from "lucide-react";
 
 const API_ROOT = (
   process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
-).replace(/\/+$/, "").replace(/\/api$/, "");
+)
+  .replace(/\/+$/, "")
+  .replace(/\/api$/, "");
 
-const menuItems = [
-  { label: "Dashboard", icon: LayoutDashboard },
-  { label: "My Profile", icon: UserRound },
-  { label: "Attendance", icon: CalendarCheck },
-  { label: "Fees & Payments", icon: Wallet },
-  { label: "Results", icon: ClipboardList },
-  { label: "Timetable", icon: Clock },
-  { label: "Homework", icon: BookOpen },
-  { label: "Notices", icon: Bell },
+const MENU_ITEMS = [
+  { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+  { id: "profile", label: "My Profile", icon: UserRound },
+  { id: "fees", label: "Fee Records", icon: Wallet },
+  { id: "attendance", label: "Attendance", icon: CalendarDays },
+  { id: "results", label: "Results", icon: GraduationCap },
+  { id: "timetable", label: "Timetable", icon: BookOpen },
+  { id: "homework", label: "Homework", icon: ClipboardList },
+  { id: "notices", label: "Notices", icon: Bell },
 ];
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(Number(amount || 0));
+
+const formatDate = (date) => {
+  if (!date) return "—";
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 export default function StudentDashboard() {
   const router = useRouter();
 
   const [student, setStudent] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [activeMenu, setActiveMenu] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeMenu, setActiveMenu] = useState("Dashboard");
+
+  const [loading, setLoading] = useState(true);
+  const [feeLoading, setFeeLoading] = useState(false);
+
+  const [fees, setFees] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState({
+    totalFee: 0,
+    paid: 0,
+    due: 0,
+  });
+
   const [error, setError] = useState("");
+  const [feeError, setFeeError] = useState("");
 
-  useEffect(() => {
-    const loadStudent = async () => {
-      const token = localStorage.getItem("studentToken");
+  const getToken = () => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("studentToken");
+  };
 
-      if (!token) {
-        router.replace("/student/login");
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `${API_ROOT}/api/student-auth/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            cache: "no-store",
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          localStorage.removeItem("studentToken");
-          localStorage.removeItem("studentUser");
-          router.replace("/student/login");
-          return;
-        }
-
-        setStudent(data.student);
-        localStorage.setItem(
-          "studentUser",
-          JSON.stringify(data.student)
-        );
-      } catch (err) {
-        console.error("Student profile error:", err);
-        setError("Unable to connect to server. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStudent();
-  }, [router]);
-
-  const handleLogout = () => {
+  const logout = () => {
     localStorage.removeItem("studentToken");
     localStorage.removeItem("studentUser");
     router.replace("/student/login");
   };
 
-  const fullName = student
-    ? `${student.firstName || ""} ${student.lastName || ""}`.trim()
+  const handleUnauthorized = () => {
+    localStorage.removeItem("studentToken");
+    localStorage.removeItem("studentUser");
+    router.replace("/student/login");
+  };
+
+  // Fetch logged-in student profile
+  const fetchProfile = useCallback(async () => {
+    const token = getToken();
+
+    if (!token) {
+      router.replace("/student/login");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_ROOT}/api/student-auth/profile`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        handleUnauthorized();
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || "Unable to load student profile");
+      }
+
+      const profile =
+        data.student || data.user || data.profile || data.data || data;
+
+      setStudent(profile);
+    } catch (err) {
+      console.error("Student Profile Error:", err);
+      setError(err.message || "Unable to load your profile");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  // Fetch student's own fee records
+  const fetchFees = useCallback(async () => {
+    const token = getToken();
+
+    if (!token) {
+      handleUnauthorized();
+      return;
+    }
+
+    try {
+      setFeeLoading(true);
+      setFeeError("");
+
+      const response = await fetch(
+        `${API_ROOT}/api/student-auth/fees`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        handleUnauthorized();
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || "Unable to load fee records");
+      }
+
+      setFees(Array.isArray(data.fees) ? data.fees : []);
+      setTransactions(
+        Array.isArray(data.transactions) ? data.transactions : []
+      );
+
+      setSummary({
+        totalFee: Number(data.summary?.totalFee || 0),
+        paid: Number(data.summary?.paid || 0),
+        due: Number(data.summary?.due || 0),
+      });
+    } catch (err) {
+      console.error("Student Fees Error:", err);
+      setFeeError(err.message || "Unable to load fee records");
+    } finally {
+      setFeeLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    if (activeMenu === "fees") {
+      fetchFees();
+    }
+  }, [activeMenu, fetchFees]);
+
+  const changeMenu = (menu) => {
+    setActiveMenu(menu);
+    setSidebarOpen(false);
+  };
+
+  const studentName = student
+    ? [student.firstName, student.lastName].filter(Boolean).join(" ") ||
+      student.name ||
+      "Student"
     : "Student";
 
-  const initials = fullName
+  const initials = studentName
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join("");
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+
+  const statusBadge = (status) => {
+    const value = String(status || "Pending").toLowerCase();
+
+    if (value === "paid") {
+      return "bg-green-100 text-green-700";
+    }
+
+    if (value === "partial") {
+      return "bg-amber-100 text-amber-700";
+    }
+
+    return "bg-red-100 text-red-700";
+  };
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <div className="rounded-2xl bg-[#123d32] p-6 text-white shadow-sm sm:p-8">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-sm text-green-100">Welcome back,</p>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+              {studentName}
+            </h2>
+            <p className="mt-2 text-sm text-green-100">
+              Welcome to your student portal.
+            </p>
+            <p className="mt-4 text-sm text-green-100">
+              Admission No: {student?.admissionNo || "—"}
+            </p>
+          </div>
+
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 text-2xl font-bold">
+            {initials || "S"}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <SummaryCard
+          title="Total Fee"
+          value={formatCurrency(summary.totalFee)}
+          icon={IndianRupee}
+          color="blue"
+        />
+        <SummaryCard
+          title="Total Paid"
+          value={formatCurrency(summary.paid)}
+          icon={CheckCircle2}
+          color="green"
+        />
+        <SummaryCard
+          title="Remaining Due"
+          value={formatCurrency(summary.due)}
+          icon={Clock}
+          color="orange"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="mb-4 font-bold text-gray-800">Student Information</h3>
+          <InfoRow label="Student Name" value={studentName} />
+          <InfoRow label="Admission No." value={student?.admissionNo} />
+          <InfoRow label="Class" value={student?.className} />
+          <InfoRow label="Section" value={student?.section} />
+          <InfoRow label="Session" value={student?.session} />
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="mb-4 font-bold text-gray-800">Quick Access</h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            <QuickButton
+              icon={UserRound}
+              label="My Profile"
+              onClick={() => changeMenu("profile")}
+            />
+            <QuickButton
+              icon={Wallet}
+              label="Fee Records"
+              onClick={() => changeMenu("fees")}
+            />
+            <QuickButton
+              icon={CalendarDays}
+              label="Attendance"
+              onClick={() => changeMenu("attendance")}
+            />
+            <QuickButton
+              icon={GraduationCap}
+              label="Results"
+              onClick={() => changeMenu("results")}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold text-gray-800">Fee Overview</h3>
+          <button
+            onClick={() => changeMenu("fees")}
+            className="text-sm font-semibold text-[#176b50] hover:underline"
+          >
+            View Fee Records →
+          </button>
+        </div>
+
+        <p className="mt-3 text-sm text-gray-500">
+          Open Fee Records to view your receipts and complete payment history.
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderProfile = () => (
+    <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-7">
+      <h2 className="mb-6 text-xl font-bold text-gray-800">My Profile</h2>
+
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#123d32] text-xl font-bold text-white">
+          {initials || "S"}
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-gray-800">{studentName}</h3>
+          <p className="text-sm text-gray-500">
+            Admission No: {student?.admissionNo || "—"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+        <InfoRow label="First Name" value={student?.firstName} />
+        <InfoRow label="Last Name" value={student?.lastName} />
+        <InfoRow label="Admission No." value={student?.admissionNo} />
+        <InfoRow label="Roll No." value={student?.rollNo} />
+        <InfoRow label="Class" value={student?.className} />
+        <InfoRow label="Section" value={student?.section} />
+        <InfoRow label="Session" value={student?.session} />
+        <InfoRow label="Gender" value={student?.gender} />
+        <InfoRow label="Date of Birth" value={formatDate(student?.dob)} />
+        <InfoRow label="Father's Name" value={student?.fatherName} />
+        <InfoRow label="Mother's Name" value={student?.motherName} />
+        <InfoRow label="Phone" value={student?.phone} />
+        <InfoRow label="Email" value={student?.email} />
+        <InfoRow label="Address" value={student?.address} />
+      </div>
+    </div>
+  );
+
+  const renderFees = () => (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Fee Records</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            View your fee details and payment history.
+          </p>
+        </div>
+
+        <button
+          onClick={fetchFees}
+          disabled={feeLoading}
+          className="flex items-center gap-2 border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <RefreshCw size={16} className={feeLoading ? "animate-spin" : ""} />
+          Refresh
+        </button>
+      </div>
+
+      {feeError && (
+        <div className="flex items-center gap-2 border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <AlertCircle size={18} />
+          {feeError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <SummaryCard
+          title="Total Fee"
+          value={formatCurrency(summary.totalFee)}
+          icon={IndianRupee}
+          color="blue"
+        />
+        <SummaryCard
+          title="Paid Amount"
+          value={formatCurrency(summary.paid)}
+          icon={CheckCircle2}
+          color="green"
+        />
+        <SummaryCard
+          title="Due Amount"
+          value={formatCurrency(summary.due)}
+          icon={Clock}
+          color="orange"
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 p-5">
+          <h3 className="font-bold text-gray-800">Fee Receipts</h3>
+        </div>
+
+        {feeLoading ? (
+          <LoadingBlock message="Loading fee records..." />
+        ) : fees.length === 0 ? (
+          <EmptyBlock message="No fee records found." />
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[750px] text-left text-sm">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="px-5 py-4">Receipt</th>
+                    <th className="px-5 py-4">Date</th>
+                    <th className="px-5 py-4">Total</th>
+                    <th className="px-5 py-4">Paid</th>
+                    <th className="px-5 py-4">Due</th>
+                    <th className="px-5 py-4">Status</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-gray-100">
+                  {fees.map((fee) => (
+                    <tr key={fee._id}>
+                      <td className="px-5 py-4 font-semibold text-gray-800">
+                        {fee.receipt || "—"}
+                      </td>
+                      <td className="px-5 py-4 text-gray-600">
+                        {formatDate(fee.paymentDate || fee.createdAt)}
+                      </td>
+                      <td className="px-5 py-4">
+                        {formatCurrency(fee.amount)}
+                      </td>
+                      <td className="px-5 py-4 text-green-700">
+                        {formatCurrency(fee.paid)}
+                      </td>
+                      <td className="px-5 py-4 text-red-600">
+                        {formatCurrency(fee.due)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-block px-3 py-1 text-xs font-bold ${statusBadge(fee.status)}`}
+                        >
+                          {fee.status || "Pending"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile fee cards */}
+            <div className="space-y-3 p-4 md:hidden">
+              {fees.map((fee) => (
+                <div
+                  key={fee._id}
+                  className="border border-gray-200 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-gray-500">Receipt Number</p>
+                      <p className="mt-1 font-bold text-gray-800">
+                        {fee.receipt || "—"}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 text-xs font-bold ${statusBadge(fee.status)}`}
+                    >
+                      {fee.status || "Pending"}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    {formatDate(fee.paymentDate || fee.createdAt)}
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <MobileAmount label="Total" value={fee.amount} />
+                    <MobileAmount label="Paid" value={fee.paid} />
+                    <MobileAmount label="Due" value={fee.due} />
+                    <div>
+                      <p className="text-xs text-gray-500">Payment Method</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-800">
+                        {fee.paymentMethod || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 p-5">
+          <h3 className="font-bold text-gray-800">Payment History</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            All payments received against your fee receipts.
+          </p>
+        </div>
+
+        {feeLoading ? (
+          <LoadingBlock message="Loading payment history..." />
+        ) : transactions.length === 0 ? (
+          <EmptyBlock message="No payment transactions found." />
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {transactions.map((transaction) => (
+              <div
+                key={transaction._id}
+                className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center sm:px-5"
+              >
+                <div>
+                  <p className="font-semibold text-gray-800">
+                    {transaction.receipt || "Fee Payment"}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formatDate(
+                      transaction.paymentDate || transaction.createdAt
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Method: {transaction.paymentMethod || "—"}
+                  </p>
+                </div>
+
+                <div className="font-bold text-green-700">
+                  + {formatCurrency(transaction.amount)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderPlaceholder = (title) => (
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-16 text-center">
+      <School size={42} className="mx-auto text-[#176b50]" />
+      <h2 className="mt-4 text-xl font-bold text-gray-800">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
+        This section will be available when the school connects its
+        {` ${title.toLowerCase()} `}records to the student portal.
+      </p>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f5f7f2]">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7f5]">
         <div className="text-center">
-          <Loader2 className="mx-auto h-9 w-9 animate-spin text-[#174b38]" />
-          <p className="mt-3 text-sm font-medium text-gray-500">
+          <Loader2 className="mx-auto animate-spin text-[#176b50]" size={38} />
+          <p className="mt-3 text-sm text-gray-600">
             Loading student dashboard...
           </p>
         </div>
@@ -122,12 +596,16 @@ export default function StudentDashboard() {
 
   if (error && !student) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f5f7f2] px-5">
-        <div className="max-w-md rounded-xl bg-white p-8 text-center shadow-sm">
-          <p className="font-semibold text-red-600">{error}</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7f5] p-5">
+        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-7 text-center">
+          <AlertCircle className="mx-auto text-red-500" size={38} />
+          <h2 className="mt-4 text-xl font-bold text-gray-800">
+            Unable to load dashboard
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">{error}</p>
           <button
-            onClick={() => window.location.reload()}
-            className="mt-5 bg-[#174b38] px-5 py-2.5 text-sm font-semibold text-white"
+            onClick={fetchProfile}
+            className="mt-5 bg-[#123d32] px-5 py-3 text-sm font-semibold text-white"
           >
             Try Again
           </button>
@@ -137,77 +615,74 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7f2] text-[#172d27]">
+    <div className="min-h-screen bg-[#f5f7f5] text-gray-800">
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        <button
+          aria-label="Close sidebar"
           onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col bg-[#102d24] text-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col bg-[#123d32] text-white transition-transform duration-300 lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-[78px] items-center gap-3 border-b border-white/10 px-6">
-          <div className="flex h-10 w-10 items-center justify-center bg-[#d1b56d] text-[#102d24]">
-            <GraduationCap size={25} />
-          </div>
+        <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <div>
-            <h2 className="text-lg font-bold tracking-wide">STUDENT</h2>
-            <p className="text-[10px] tracking-[2px] text-[#d1b56d]">
-              PORTAL
+            <h1 className="text-xl font-bold tracking-wide">STUDENT PORTAL</h1>
+            <p className="mt-1 text-xs text-green-100">
+              Adarsha Markaz Academy
             </p>
           </div>
+
           <button
             onClick={() => setSidebarOpen(false)}
-            className="ml-auto lg:hidden"
+            className="p-2 lg:hidden"
+            aria-label="Close menu"
           >
-            <X size={21} />
+            <X size={22} />
           </button>
         </div>
 
-        <div className="border-b border-white/10 px-6 py-6">
+        <div className="border-b border-white/10 px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center bg-[#d1b56d] text-lg font-bold text-[#102d24]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 font-bold">
               {initials || "S"}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{fullName}</p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="truncate text-sm font-bold">{studentName}</p>
+              <p className="mt-1 text-xs text-green-100">
                 {student?.admissionNo || "Student"}
               </p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5">
-          <p className="mb-3 px-3 text-[10px] font-bold tracking-[2px] text-gray-400">
-            STUDENT MENU
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+          <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-widest text-green-200">
+            Main Menu
           </p>
 
-          {menuItems.map((item) => {
+          {MENU_ITEMS.map((item) => {
             const Icon = item.icon;
-            const active = activeMenu === item.label;
+            const active = activeMenu === item.id;
 
             return (
               <button
-                key={item.label}
-                onClick={() => {
-                  setActiveMenu(item.label);
-                  setSidebarOpen(false);
-                }}
-                className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm transition ${
+                key={item.id}
+                onClick={() => changeMenu(item.id)}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium transition ${
                   active
-                    ? "bg-[#d1b56d] font-semibold text-[#102d24]"
-                    : "text-gray-300 hover:bg-white/10 hover:text-white"
+                    ? "bg-[#c8ae6a] text-[#172d27]"
+                    : "text-green-50 hover:bg-white/10"
                 }`}
               >
-                <Icon size={18} />
+                <Icon size={19} />
                 {item.label}
-                {active && <ChevronRight size={16} className="ml-auto" />}
               </button>
             );
           })}
@@ -215,29 +690,31 @@ export default function StudentDashboard() {
 
         <div className="border-t border-white/10 p-4">
           <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-3 py-3 text-sm text-red-300 transition hover:bg-white/10"
+            onClick={logout}
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
           >
-            <LogOut size={18} />
+            <LogOut size={19} />
             Logout
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main area */}
       <main className="min-h-screen lg:ml-[270px]">
-        <header className="sticky top-0 z-30 flex h-[78px] items-center justify-between border-b border-gray-200 bg-white px-5 md:px-8">
+        <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden"
+              className="p-2 text-gray-700 hover:bg-gray-100 lg:hidden"
+              aria-label="Open menu"
             >
               <Menu size={23} />
             </button>
+
             <div>
-              <h1 className="text-lg font-bold">
-                {activeMenu}
-              </h1>
+              <h2 className="text-base font-bold text-gray-800 sm:text-lg">
+                {MENU_ITEMS.find((item) => item.id === activeMenu)?.label}
+              </h2>
               <p className="hidden text-xs text-gray-500 sm:block">
                 Adarsha Markaz Academy Laharighat
               </p>
@@ -245,178 +722,101 @@ export default function StudentDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold">{fullName}</p>
-              <p className="text-xs text-gray-500">Student Account</p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center bg-[#174b38] font-bold text-white">
+            <span className="hidden text-sm font-medium text-gray-600 sm:block">
+              {studentName}
+            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#123d32] text-sm font-bold text-white">
               {initials || "S"}
             </div>
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1400px] p-5 md:p-8">
-          {activeMenu === "Dashboard" ? (
-            <>
-              <div className="mb-7 bg-[#174b38] p-6 text-white md:p-9">
-                <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-                  <div>
-                    <p className="mb-2 text-xs font-semibold tracking-[2px] text-[#d1b56d]">
-                      STUDENT PORTAL
-                    </p>
-                    <h2 className="text-2xl font-bold md:text-3xl">
-                      Welcome, {student?.firstName || "Student"}!
-                    </h2>
-                    <p className="mt-2 max-w-lg text-sm text-gray-200">
-                      Welcome to your student dashboard. Access your
-                      academic information and school updates here.
-                    </p>
-                  </div>
-                  <div className="flex h-16 w-16 items-center justify-center border border-[#d1b56d]/50 bg-white/10 text-[#d1b56d]">
-                    <School size={35} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {[
-                  {
-                    label: "Admission Number",
-                    value: student?.admissionNo || "—",
-                    icon: GraduationCap,
-                  },
-                  {
-                    label: "Class",
-                    value: student?.className || "—",
-                    icon: BookOpen,
-                  },
-                  {
-                    label: "Section",
-                    value: student?.section || "—",
-                    icon: ClipboardList,
-                  },
-                  {
-                    label: "Session",
-                    value: student?.session || "—",
-                    icon: CalendarCheck,
-                  },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div
-                      key={item.label}
-                      className="border border-gray-200 bg-white p-5"
-                    >
-                      <div className="mb-4 flex h-10 w-10 items-center justify-center bg-[#eaf1eb] text-[#174b38]">
-                        <Icon size={21} />
-                      </div>
-                      <p className="text-xs text-gray-500">{item.label}</p>
-                      <h3 className="mt-1 break-words text-lg font-bold">
-                        {item.value}
-                      </h3>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <div className="border border-gray-200 bg-white p-6 xl:col-span-2">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h3 className="font-bold">Student Information</h3>
-                    <UserRound className="text-[#174b38]" size={20} />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    {[
-                      ["Full Name", fullName],
-                      ["Admission No.", student?.admissionNo],
-                      ["Roll Number", student?.rollNo],
-                      ["Father's Name", student?.fatherName],
-                      ["Mother's Name", student?.motherName],
-                      ["Date of Birth", student?.dob ? new Date(student.dob).toLocaleDateString("en-IN") : ""],
-                      ["Gender", student?.gender],
-                      ["Phone", student?.phone],
-                      ["Email", student?.email],
-                      ["Blood Group", student?.bloodGroup],
-                    ].map(([label, value]) => (
-                      <div key={label} className="border-b border-gray-100 pb-3">
-                        <p className="text-xs text-gray-500">{label}</p>
-                        <p className="mt-1 break-words text-sm font-semibold">
-                          {value || "Not provided"}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="border border-gray-200 bg-white p-6">
-                    <h3 className="mb-4 font-bold">Academic Details</h3>
-                    <div className="space-y-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500">Class</p>
-                        <p className="mt-1 font-semibold">{student?.className || "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Section</p>
-                        <p className="mt-1 font-semibold">{student?.section || "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Academic Session</p>
-                        <p className="mt-1 font-semibold">{student?.session || "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Account Status</p>
-                        <span className="mt-1 inline-block bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                          {student?.status || "Active"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border border-gray-200 bg-white p-6">
-                    <h3 className="mb-2 font-bold">School</h3>
-                    <p className="text-sm font-semibold">
-                      Adarsha Markaz Academy Laharighat
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-gray-500">
-                      Laharighat, Morigaon, Assam
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="border border-gray-200 bg-white p-8 md:p-12">
-              <div className="mb-5 flex h-14 w-14 items-center justify-center bg-[#eaf1eb] text-[#174b38]">
-                {(() => {
-                  const ItemIcon = menuItems.find(
-                    (item) => item.label === activeMenu
-                  )?.icon || BookOpen;
-                  return <ItemIcon size={28} />;
-                })()}
-              </div>
-              <h2 className="text-xl font-bold">{activeMenu}</h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-gray-500">
-                This section is ready for integration. The relevant school
-                records and APIs need to be connected before information
-                can be displayed here.
-              </p>
-              <button
-                onClick={() => setActiveMenu("Dashboard")}
-                className="mt-6 bg-[#174b38] px-5 py-3 text-sm font-semibold text-white hover:bg-[#102d24]"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          )}
+        <div className="p-4 sm:p-6 lg:p-8">
+          {activeMenu === "overview" && renderOverview()}
+          {activeMenu === "profile" && renderProfile()}
+          {activeMenu === "fees" && renderFees()}
+          {activeMenu === "attendance" && renderPlaceholder("Attendance")}
+          {activeMenu === "results" && renderPlaceholder("Results")}
+          {activeMenu === "timetable" && renderPlaceholder("Timetable")}
+          {activeMenu === "homework" && renderPlaceholder("Homework")}
+          {activeMenu === "notices" && renderPlaceholder("Notices")}
         </div>
 
-        <footer className="border-t border-gray-200 bg-white px-6 py-5 text-center text-xs text-gray-500">
+        <footer className="border-t border-gray-200 bg-white px-5 py-5 text-center text-xs text-gray-500">
           © {new Date().getFullYear()} Adarsha Markaz Academy Laharighat.
-          Student Portal.
+          All rights reserved.
         </footer>
       </main>
     </div>
+  );
+}
+
+// Summary card
+function SummaryCard({ title, value, icon: Icon, color }) {
+  const colors = {
+    blue: "bg-blue-50 text-blue-700",
+    green: "bg-green-50 text-green-700",
+    orange: "bg-orange-50 text-orange-700",
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-5">
+      <div>
+        <p className="text-sm text-gray-500">{title}</p>
+        <h3 className="mt-2 text-xl font-bold text-gray-800">{value}</h3>
+      </div>
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center ${colors[color]}`}>
+        <Icon size={23} />
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="border-b border-gray-100 py-3">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-gray-800">
+        {value || "—"}
+      </p>
+    </div>
+  );
+}
+
+function QuickButton({ icon: Icon, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-[#176b50] hover:bg-green-50"
+    >
+      <Icon size={18} className="shrink-0 text-[#176b50]" />
+      {label}
+    </button>
+  );
+}
+
+function MobileAmount({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-gray-800">
+        {formatCurrency(value)}
+      </p>
+    </div>
+  );
+}
+
+function LoadingBlock({ message }) {
+  return (
+    <div className="flex items-center justify-center gap-2 p-10 text-sm text-gray-500">
+      <Loader2 size={20} className="animate-spin" />
+      {message}
+    </div>
+  );
+}
+
+function EmptyBlock({ message }) {
+  return (
+    <div className="p-10 text-center text-sm text-gray-500">{message}</div>
   );
 }
