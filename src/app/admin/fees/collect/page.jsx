@@ -266,37 +266,124 @@ export default function CollectFeePage() {
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"><AlertCircle size={20} className="mt-0.5 shrink-0" /><p>{error}</p></div>}
       {message && <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800"><CheckCircle2 size={20} className="mt-0.5 shrink-0" /><div className="min-w-0 flex-1"><p className="font-semibold">{message}</p><p className="mt-1 text-sm">Receipt number: {receipt?.receipt || "-"}</p></div></div>}
 
-      <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-5 flex items-center gap-3 border-b pb-4">
-          <div className="rounded-xl bg-blue-100 p-3 text-blue-700"><Search size={22} /></div>
-          <div><h2 className="text-lg font-bold text-slate-800">Find Student</h2><p className="text-sm text-slate-500">Name, Class, Section ya Roll Number se search karein. Ek ya multiple fields use kar sakte hain.</p></div>
-        </div>
-        <form onSubmit={searchStudents} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Student Name"><input name="name" value={filters.name} onChange={updateFilter} placeholder="Enter student name" className={inputClass} /></Field>
-          <Field label="Class / Grade"><input name="className" value={filters.className} onChange={updateFilter} placeholder="e.g. Class 5" className={inputClass} /></Field>
-          <Field label="Section"><input name="section" value={filters.section} onChange={updateFilter} placeholder="e.g. A" className={inputClass} /></Field>
-          <Field label="Roll Number"><input name="rollNo" type="number" min="0" value={filters.rollNo} onChange={updateFilter} placeholder="Enter roll number" className={inputClass} /></Field>
-          <div className="flex flex-wrap gap-3 sm:col-span-2 lg:col-span-4">
-            <button type="submit" disabled={searching} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-              {searching ? <LoaderCircle size={18} className="animate-spin" /> : <Search size={18} />}{searching ? "Searching..." : "Search Students"}
-            </button>
-            <button type="button" onClick={() => { setFilters(initialFilters); setStudents([]); setHasSearched(false); setError(""); }} className="rounded-xl border px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50">Clear Filters</button>
-          </div>
-        </form>
+    
+<section className="rounded-xl border bg-white p-4 shadow-sm">
+  <div className="mb-4">
+    <h2 className="text-lg font-bold text-slate-800">Find Student</h2>
+    <p className="text-sm text-slate-500">
+      Name, Class, Roll Number ya Section se student search karein.
+    </p>
+  </div>
 
-        {hasSearched && !searching && <div className="mt-5 space-y-3">
-          <p className="text-sm font-semibold text-slate-600">{students.length} student(s) found</p>
-          {students.length === 0 ? <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Koi student nahi mila. Search details check karein.</p> : students.map((student) => (
-            <div key={student._id} className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-bold text-slate-800">{student.student}</p>
-                <p className="mt-1 text-sm text-slate-500">Admission: {student.admissionNo} · Class: {student.className} · Section: {student.section} · Roll: {student.rollNo}</p>
-              </div>
-              <button type="button" onClick={() => chooseStudent(student)} className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Select Student</button>
+  <form onSubmit={searchStudents} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <Field label="Student Name">
+      <input
+        name="name"
+        value={filters.name}
+        onChange={updateFilter}
+        placeholder="Student name"
+        className={inputClass}
+      />
+    </Field>
+
+    <Field label="Class">
+      <input
+        name="className"
+        value={filters.className}
+        onChange={updateFilter}
+        placeholder="Class"
+        className={inputClass}
+      />
+    </Field>
+
+    <Field label="Roll Number">
+      <input
+        name="rollNo"
+        type="number"
+        min="0"
+        value={filters.rollNo}
+        onChange={updateFilter}
+        placeholder="Roll number"
+        className={inputClass}
+      />
+    </Field>
+
+    <Field label="Section">
+      <input
+        name="section"
+        value={filters.section}
+        onChange={updateFilter}
+        placeholder="Section"
+        className={inputClass}
+      />
+    </Field>
+
+    <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
+      <button
+        type="submit"
+        disabled={searching}
+        className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+      >
+        {searching ? (
+          <LoaderCircle size={18} className="animate-spin" />
+        ) : (
+          <Search size={18} />
+        )}
+        {searching ? "Searching..." : "Search"}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setFilters(initialFilters);
+          setStudents([]);
+          setHasSearched(false);
+          setError("");
+        }}
+        className="rounded-lg border px-5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        Clear
+      </button>
+    </div>
+  </form>
+
+  {hasSearched && !searching && (
+    <div className="mt-4 space-y-3">
+      <p className="text-sm font-semibold text-slate-600">
+        {students.length} student(s) found
+      </p>
+
+      {students.length === 0 ? (
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          Koi student nahi mila. Search details check karein.
+        </p>
+      ) : (
+        students.map((student) => (
+          <div
+            key={student._id}
+            className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="font-bold text-slate-800">{student.student}</p>
+              <p className="text-sm text-slate-500">
+                Admission: {student.admissionNo} · Class: {student.className}
+                {" · "}Roll: {student.rollNo} · Section: {student.section}
+              </p>
             </div>
-          ))}
-        </div>}
-      </section>
+
+            <button
+              type="button"
+              onClick={() => chooseStudent(student)}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Select
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  )}
+</section>
 
       {selectedStudent && <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div><p className="font-bold text-emerald-800">Selected Student: {selectedStudent.student}</p><p className="mt-1 text-sm text-emerald-700">{selectedStudent.admissionNo} · {selectedStudent.className} · Section {selectedStudent.section} · Roll {selectedStudent.rollNo}</p></div>
