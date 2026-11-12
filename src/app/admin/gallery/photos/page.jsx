@@ -8,7 +8,7 @@ import {
   LoaderCircle, Images, Plus, FileText, AlertCircle,
 } from "lucide-react";
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000")
+const BASE = (process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com")
   .replace(/\/$/, "");
 const ROOT = BASE.endsWith("/api") ? BASE : `${BASE}/api`;
 const API = `${ROOT}/gallery`;

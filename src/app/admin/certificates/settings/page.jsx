@@ -17,7 +17,7 @@ import {
 } from "react-icons/hi2";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  process.env.NEXT_PUBLIC_API_URL || "hhttps://school1b.onrender.com"
 ).replace(/\/+$/, "");
 
 const API_ROOT = API_BASE.endsWith("/api")

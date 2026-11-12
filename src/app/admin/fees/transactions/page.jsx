@@ -15,7 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+const API = (process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com").replace(/\/+$/, "");
 
 const money = (n) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", {

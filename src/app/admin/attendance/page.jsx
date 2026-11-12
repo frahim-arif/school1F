@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, RefreshCw, Save, ClipboardCheck, Search, AlertCircle } from "lucide-react";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
 ).replace(/\/+$/, "");
 
 const API_ROOT = API_BASE.endsWith("/api")

@@ -17,7 +17,7 @@ import {
 } from "react-icons/hi2";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com/api";
 
 const inputClass =
   "w-full border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600";

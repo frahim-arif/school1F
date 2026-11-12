@@ -6,7 +6,7 @@ import { ArrowLeft, Save, LoaderCircle, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
 ).replace(/\/+$/, "");
 
 const defaultSettings = {
