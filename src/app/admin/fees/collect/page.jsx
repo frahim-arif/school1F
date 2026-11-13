@@ -1026,6 +1026,41 @@ const due = Math.max(0, total - paid);
             </section>
 
 
+            
+
+            {/* Action Buttons */}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Link
+                href="/admin/fees"
+                className="rounded-xl border bg-white px-6 py-3 text-center font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </Link>
+
+              <button
+                type="submit"
+                disabled={
+                  submitting ||
+                  !selectedStudent ||
+                  !selectedStructure ||
+                  calculatedTotal <= 0 ||
+                  !form.session
+                }
+                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <LoaderCircle size={19} className="animate-spin" />
+                    Saving Fee...
+                  </>
+                ) : (
+                  <>
+                    <IndianRupee size={19} />
+                    Save Fee & Generate Receipt
+                  </>
+                )}
+              </button>
+            </div>
             {/* Previous Fee Details - Collapsible */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
               <button
@@ -1192,40 +1227,6 @@ const due = Math.max(0, total - paid);
                 </div>
               )}
             </section>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Link
-                href="/admin/fees"
-                className="rounded-xl border bg-white px-6 py-3 text-center font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </Link>
-
-              <button
-                type="submit"
-                disabled={
-                  submitting ||
-                  !selectedStudent ||
-                  !selectedStructure ||
-                  calculatedTotal <= 0 ||
-                  !form.session
-                }
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? (
-                  <>
-                    <LoaderCircle size={19} className="animate-spin" />
-                    Saving Fee...
-                  </>
-                ) : (
-                  <>
-                    <IndianRupee size={19} />
-                    Save Fee & Generate Receipt
-                  </>
-                )}
-              </button>
-            </div>
           </div>
 
           {/* Payment Summary */}
