@@ -669,100 +669,6 @@ export default function CollectFeePage() {
         </div>
       )}
 
-
-{/* New Payment Details */}
-            <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex items-center gap-3 border-b pb-4">
-                <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
-                  <CreditCard size={22} />
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Payment Details
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Total fee automatically loaded from class fee structure.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Total Fee (₹)">
-                  <input
-                    type="text"
-                    value={selectedStructure ? money(calculatedTotal) : "Fee Structure Not Found"}
-                    readOnly
-                    className={`${inputClass} bg-slate-50 font-bold`}
-                  />
-                  {!selectedStructure && (
-                    <p className="mt-2 text-xs text-red-600">
-                      Is class ke liye Fee Structure create karein.
-                    </p>
-                  )}
-                </Field>
-
-                <Field label="Amount Received (₹)" required>
-                  <input
-                    name="paid"
-                    type="number"
-                    min="0"
-                    max={calculatedTotal || undefined}
-                    step="0.01"
-                    value={form.paid}
-                    onChange={updateField}
-                    placeholder="Enter amount received"
-                    required
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Payment Method" required>
-                  <select
-                    name="paymentMethod"
-                    value={form.paymentMethod}
-                    onChange={updateField}
-                    className={inputClass}
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </Field>
-
-                <Field label="Payment Date">
-                  <div className="relative">
-                    <CalendarDays
-                      size={18}
-                      className="pointer-events-none absolute left-3 top-3.5 text-slate-400"
-                    />
-                    <input
-                      name="paymentDate"
-                      type="date"
-                      value={form.paymentDate}
-                      onChange={updateField}
-                      className={`${inputClass} pl-10`}
-                    />
-                  </div>
-                </Field>
-
-                <div className="sm:col-span-2">
-                  <Field label="Remarks (Optional)">
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={updateField}
-                      placeholder="Installment details or other notes..."
-                      rows={3}
-                      maxLength={1000}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-              </div>
-            </section>
       {/* Find Student */}
       {!selectedStudent && (
         <section className="rounded-xl border bg-white p-5 shadow-sm">
@@ -1173,7 +1079,99 @@ export default function CollectFeePage() {
               )}
             </section>
 
-            
+            {/* New Payment Details */}
+            <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-6 flex items-center gap-3 border-b pb-4">
+                <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
+                  <CreditCard size={22} />
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">
+                    Payment Details
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Total fee automatically loaded from class fee structure.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Total Fee (₹)">
+                  <input
+                    type="text"
+                    value={selectedStructure ? money(calculatedTotal) : "Fee Structure Not Found"}
+                    readOnly
+                    className={`${inputClass} bg-slate-50 font-bold`}
+                  />
+                  {!selectedStructure && (
+                    <p className="mt-2 text-xs text-red-600">
+                      Is class ke liye Fee Structure create karein.
+                    </p>
+                  )}
+                </Field>
+
+                <Field label="Amount Received (₹)" required>
+                  <input
+                    name="paid"
+                    type="number"
+                    min="0"
+                    max={calculatedTotal || undefined}
+                    step="0.01"
+                    value={form.paid}
+                    onChange={updateField}
+                    placeholder="Enter amount received"
+                    required
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Payment Method" required>
+                  <select
+                    name="paymentMethod"
+                    value={form.paymentMethod}
+                    onChange={updateField}
+                    className={inputClass}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
+
+                <Field label="Payment Date">
+                  <div className="relative">
+                    <CalendarDays
+                      size={18}
+                      className="pointer-events-none absolute left-3 top-3.5 text-slate-400"
+                    />
+                    <input
+                      name="paymentDate"
+                      type="date"
+                      value={form.paymentDate}
+                      onChange={updateField}
+                      className={`${inputClass} pl-10`}
+                    />
+                  </div>
+                </Field>
+
+                <div className="sm:col-span-2">
+                  <Field label="Remarks (Optional)">
+                    <textarea
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={updateField}
+                      placeholder="Installment details or other notes..."
+                      rows={3}
+                      maxLength={1000}
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </section>
 
             {/* Action Buttons */}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
