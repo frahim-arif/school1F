@@ -73,6 +73,7 @@ export default function CollectFeePage() {
 
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [loadingUrlStudent, setLoadingUrlStudent] = useState(false);
 
   const [sessions, setSessions] = useState([]);
   const [currentSession, setCurrentSession] = useState("");
@@ -156,6 +157,81 @@ export default function CollectFeePage() {
     loadSettings();
   }, []);
 
+  // Automatically select student when opened from All Students page.
+useEffect(() => {
+  if (loadingSettings) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const studentId = params.get("studentId")?.trim() || "";
+  const admissionNo = params.get("admissionNo")?.trim() || "";
+
+  // No student ID means normal manual search.
+  if (!studentId) return;
+
+  let cancelled = false;
+
+  const loadSelectedStudent = async () => {
+    setLoadingUrlStudent(true);
+    setError("");
+    setMessage("");
+    setReceipt(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/students/${encodeURIComponent(studentId)}`,
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        throw new Error(
+          data.message || "Selected student load nahi ho saka."
+        );
+      }
+
+      const student =
+        data.student ||
+        data.data?.student ||
+        data.data ||
+        null;
+
+      if (!student || !student._id) {
+        throw new Error("Student record nahi mila.");
+      }
+
+      if (
+        admissionNo &&
+        String(student.admissionNo || "").trim().toLowerCase() !==
+          admissionNo.toLowerCase()
+      ) {
+        throw new Error(
+          "Student ID aur Admission Number match nahi kar rahe."
+        );
+      }
+
+      if (!cancelled) {
+        chooseStudent(student);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        setError(
+          err.message || "Student details load nahi ho sakin."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoadingUrlStudent(false);
+      }
+    }
+  };
+
+  loadSelectedStudent();
+
+  return () => {
+    cancelled = true;
+  };
+}, [loadingSettings]);
   // Automatically find fee structure using selected class.
   const selectedStructure = feeStructures.find(
     (item) =>
@@ -669,8 +745,28 @@ export default function CollectFeePage() {
         </div>
       )}
 
+      {/* Loading Student From All Students Page */}
+{loadingUrlStudent && (
+  <div className="flex items-center gap-3 rounded-xl border bg-white p-5 shadow-sm">
+    <LoaderCircle
+      size={22}
+      className="animate-spin text-emerald-600"
+    />
+
+    <div>
+      <p className="font-semibold text-slate-800">
+        Loading Selected Student...
+      </p>
+
+      <p className="text-sm text-slate-500">
+        Student details automatically load ho rahi hain.
+      </p>
+    </div>
+  </div>
+)}
+
       {/* Find Student */}
-      {!selectedStudent && (
+      {!selectedStudent && !loadingUrlStudent && (
         <section className="rounded-xl border bg-white p-5 shadow-sm">
           <div className="mb-5">
             <h2 className="text-lg font-bold text-slate-800">
