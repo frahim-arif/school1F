@@ -454,26 +454,40 @@ const due = Math.max(0, total - paid);
     loadExistingFees(student);
   };
 
-  const clearSelectedStudent = () => {
-    setSelectedStudent(null);
-    setFilters(initialFilters);
-    setStudents([]);
-    setHasSearched(false);
+ const clearSelectedStudent = () => {
+  // Remove auto-selection parameters from URL.
+  const params = new URLSearchParams(window.location.search);
+  params.delete("studentId");
+  params.delete("admissionNo");
 
-    setExistingFees([]);
-    setExistingFeeError("");
-    setLoadingExistingFees(false);
-    setShowPreviousFees(false);
+  const query = params.toString();
 
-    setForm({
-      ...initialForm,
-      paymentDate: today(),
-    });
+  window.history.replaceState(
+    {},
+    "",
+    `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+  );
 
-    setReceipt(null);
-    setMessage("");
-    setError("");
-  };
+  // Clear selected student.
+  setSelectedStudent(null);
+  setFilters(initialFilters);
+  setStudents([]);
+  setHasSearched(false);
+
+  setExistingFees([]);
+  setExistingFeeError("");
+  setLoadingExistingFees(false);
+  setShowPreviousFees(false);
+
+  setForm({
+    ...initialForm,
+    paymentDate: today(),
+  });
+
+  setReceipt(null);
+  setMessage("");
+  setError("");
+};
 
   // Save new fee receipt.
   const handleSubmit = async (event) => {
