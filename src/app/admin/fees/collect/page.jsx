@@ -49,18 +49,37 @@ const money = (value) =>
     maximumFractionDigits: 2,
   }).format(Number(value) || 0);
 
+const formatDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("en-IN");
+};
+
 export default function CollectFeePage() {
   const [form, setForm] = useState(initialForm);
   const [filters, setFilters] = useState(initialFilters);
+
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState(null);
 
+  // Previous fee records
+  const [existingFees, setExistingFees] = useState([]);
+  const [loadingExistingFees, setLoadingExistingFees] = useState(false);
+  const [existingFeeError, setExistingFeeError] = useState("");
+
+  // New fee form summary
   const total = Number(form.amount) || 0;
   const paid = Number(form.paid) || 0;
   const due = Math.max(0, total - paid);
@@ -72,6 +91,23 @@ export default function CollectFeePage() {
       ? "Partial"
       : "Pending";
 
+  // Previous fee summary
+  const existingTotal = existingFees.reduce(
+    (sum, fee) => sum + (Number(fee.amount) || 0),
+    0
+  );
+
+  const existingPaid = existingFees.reduce(
+    (sum, fee) => sum + (Number(fee.paid) || 0),
+    0
+  );
+
+  const existingDue = existingFees.reduce(
+    (sum, fee) => sum + (Number(fee.due) || 0),
+    0
+  );
+
+  // Update new fee form
   const updateField = (event) => {
     const { name, value } = event.target;
 
@@ -85,6 +121,7 @@ export default function CollectFeePage() {
     setReceipt(null);
   };
 
+  // Update student search filters
   const updateFilter = (event) => {
     const { name, value } = event.target;
 
@@ -96,6 +133,71 @@ export default function CollectFeePage() {
     setError("");
   };
 
+  // Load previous fee records for selected student
+  const loadExistingFees = async (student) => {
+    setLoadingExistingFees(true);
+    setExistingFees([]);
+    setExistingFeeError("");
+
+    try {
+      const admissionNo = String(student.admissionNo || "").trim();
+
+      if (!admissionNo) {
+        throw new Error("Student admission number nahi mila.");
+      }
+
+      const response = await fetch(
+        `${API_BASE}/api/fees?search=${encodeURIComponent(admissionNo)}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        throw new Error(
+          data.message || "Previous fee records load nahi hue."
+        );
+      }
+
+      const allFees = Array.isArray(data.fees) ? data.fees : [];
+
+      const selectedId = String(student._id || "");
+
+      const matchedFees = allFees.filter((fee) => {
+        const feeStudentId =
+          typeof fee.studentId === "object"
+            ? String(fee.studentId?._id || "")
+            : String(fee.studentId || "");
+
+        // If fee has studentId, match by ID.
+        if (feeStudentId && selectedId) {
+          return feeStudentId === selectedId;
+        }
+
+        // Otherwise match exact admission number.
+        return (
+          String(fee.admissionNo || "").trim().toLowerCase() ===
+          admissionNo.toLowerCase()
+        );
+      });
+
+      // Latest receipts first
+      matchedFees.sort(
+        (a, b) =>
+          new Date(b.paymentDate || b.createdAt || 0).getTime() -
+          new Date(a.paymentDate || a.createdAt || 0).getTime()
+      );
+
+      setExistingFees(matchedFees);
+    } catch (err) {
+      setExistingFeeError(
+        err.message || "Previous fee records load nahi ho sake."
+      );
+    } finally {
+      setLoadingExistingFees(false);
+    }
+  };
+
+  // Search students
   const searchStudents = async (event) => {
     event?.preventDefault();
 
@@ -119,6 +221,9 @@ export default function CollectFeePage() {
     setStudents([]);
     setSelectedStudent(null);
 
+    setExistingFees([]);
+    setExistingFeeError("");
+
     setForm((previous) => ({
       ...previous,
       studentId: "",
@@ -127,6 +232,9 @@ export default function CollectFeePage() {
       className: "",
       section: "",
       rollNo: "",
+      amount: "",
+      paid: "",
+      remarks: "",
     }));
 
     setError("");
@@ -159,6 +267,7 @@ export default function CollectFeePage() {
     }
   };
 
+  // Select student and load previous fees
   const chooseStudent = (student) => {
     setSelectedStudent(student);
 
@@ -166,7 +275,9 @@ export default function CollectFeePage() {
       ...previous,
       studentId: student._id,
       admissionNo: student.admissionNo || "",
-      student: student.student || "",
+      student:
+        student.student ||
+        [student.firstName, student.lastName].filter(Boolean).join(" "),
       className: student.className || "",
       section: student.section || "",
       rollNo: student.rollNo ?? "",
@@ -177,16 +288,24 @@ export default function CollectFeePage() {
 
     setStudents([]);
     setHasSearched(false);
+
     setError("");
     setMessage("");
     setReceipt(null);
+
+    loadExistingFees(student);
   };
 
+  // Change selected student
   const clearSelectedStudent = () => {
     setSelectedStudent(null);
     setFilters(initialFilters);
     setStudents([]);
     setHasSearched(false);
+
+    setExistingFees([]);
+    setExistingFeeError("");
+    setLoadingExistingFees(false);
 
     setForm((previous) => ({
       ...previous,
@@ -206,6 +325,7 @@ export default function CollectFeePage() {
     setError("");
   };
 
+  // Save new fee receipt
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -270,6 +390,9 @@ export default function CollectFeePage() {
           savedFee.receipt || "Generated"
         }`
       );
+
+      // Refresh previous fee records after saving
+      await loadExistingFees(selectedStudent);
     } catch (err) {
       setError(
         err.message ||
@@ -280,6 +403,7 @@ export default function CollectFeePage() {
     }
   };
 
+  // Print receipt
   const printReceipt = () => {
     if (!receipt) return;
 
@@ -447,11 +571,22 @@ export default function CollectFeePage() {
             <p className="mt-1 text-sm">
               Receipt number: {receipt?.receipt || "-"}
             </p>
+
+            {receipt && (
+              <button
+                type="button"
+                onClick={printReceipt}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+              >
+                <Receipt size={16} />
+                Print Saved Receipt
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* FIND STUDENT - Only before selection */}
+      {/* Find Student */}
       {!selectedStudent && (
         <section className="rounded-xl border bg-white p-5 shadow-sm">
           <div className="mb-5">
@@ -559,7 +694,10 @@ export default function CollectFeePage() {
                   >
                     <div>
                       <p className="font-bold text-slate-800">
-                        {student.student}
+                        {student.student ||
+                          [student.firstName, student.lastName]
+                            .filter(Boolean)
+                            .join(" ")}
                       </p>
 
                       <p className="mt-1 text-sm text-slate-500">
@@ -585,7 +723,7 @@ export default function CollectFeePage() {
         </section>
       )}
 
-      {/* FORM - Only after student selection */}
+      {/* Selected Student Form */}
       {selectedStudent && (
         <form
           onSubmit={handleSubmit}
@@ -668,7 +806,151 @@ export default function CollectFeePage() {
               </div>
             </section>
 
-            {/* Payment Details */}
+            {/* Previous Fee Details */}
+            <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex items-center gap-3 border-b pb-4">
+                <div className="rounded-xl bg-amber-100 p-3 text-amber-700">
+                  <Receipt size={22} />
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">
+                    Previous Fee Details
+                  </h2>
+
+                  <p className="text-sm text-slate-500">
+                    Previously recorded fees for this student
+                  </p>
+                </div>
+              </div>
+
+              {loadingExistingFees ? (
+                <div className="flex items-center gap-2 py-5 text-slate-500">
+                  <LoaderCircle size={19} className="animate-spin" />
+                  Loading previous fee records...
+                </div>
+              ) : existingFeeError ? (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {existingFeeError}
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">
+                        Previous Total Fee
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-slate-800">
+                        {money(existingTotal)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-emerald-50 p-4">
+                      <p className="text-sm text-emerald-700">
+                        Previous Total Paid
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-emerald-700">
+                        {money(existingPaid)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-red-50 p-4">
+                      <p className="text-sm text-red-700">
+                        Previous Remaining Due
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-red-700">
+                        {money(existingDue)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <h3 className="mb-3 font-bold text-slate-800">
+                      Previous Fee Receipts ({existingFees.length})
+                    </h3>
+
+                    {existingFees.length === 0 ? (
+                      <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+                        Is student ke liye abhi koi previous fee record
+                        nahi mila. Aap neeche new fee receipt create kar
+                        sakte hain.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {existingFees.map((fee) => (
+                          <div
+                            key={fee._id}
+                            className="rounded-xl border border-slate-200 p-4"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-slate-800">
+                                  {fee.receipt || "Fee Receipt"}
+                                </p>
+
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Date: {formatDate(fee.paymentDate)}
+                                </p>
+                              </div>
+
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                  fee.status === "Paid"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : fee.status === "Partial"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {fee.status || "Pending"}
+                              </span>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-3">
+                              <div>
+                                <p className="text-xs text-slate-500">
+                                  Total
+                                </p>
+                                <p className="mt-1 font-bold text-slate-800">
+                                  {money(fee.amount)}
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-slate-500">
+                                  Paid
+                                </p>
+                                <p className="mt-1 font-bold text-emerald-600">
+                                  {money(fee.paid)}
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-slate-500">
+                                  Due
+                                </p>
+                                <p className="mt-1 font-bold text-red-600">
+                                  {money(fee.due)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 text-xs text-slate-500">
+                              Payment Method: {fee.paymentMethod || "-"}
+                              {fee.remarks
+                                ? ` · Remarks: ${fee.remarks}`
+                                : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+
+            {/* New Payment Details */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-6 flex items-center gap-3 border-b pb-4">
                 <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
@@ -681,7 +963,8 @@ export default function CollectFeePage() {
                   </h2>
 
                   <p className="text-sm text-slate-500">
-                    Enter the total fee and amount received.
+                    Enter the total fee and amount received for a new fee
+                    receipt.
                   </p>
                 </div>
               </div>
@@ -793,14 +1076,14 @@ export default function CollectFeePage() {
             </div>
           </div>
 
-          {/* Payment Summary */}
+          {/* New Payment Summary */}
           <aside className="h-fit rounded-2xl border bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-6">
             <h2 className="text-lg font-bold text-slate-800">
               Payment Summary
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Amounts update automatically.
+              New fee receipt amounts update automatically.
             </p>
 
             <div className="mt-6 space-y-4">
@@ -820,9 +1103,7 @@ export default function CollectFeePage() {
                   label="Remaining Due"
                   value={money(due)}
                   valueClass={
-                    due > 0
-                      ? "text-red-600"
-                      : "text-emerald-600"
+                    due > 0 ? "text-red-600" : "text-emerald-600"
                   }
                   large
                 />
@@ -849,10 +1130,19 @@ export default function CollectFeePage() {
 
             <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
               {paid === 0
-                ? "No payment received yet. This record will be marked Pending."
+                ? "No payment received yet. This new record will be marked Pending."
                 : due === 0
-                ? "Full payment received. This record will be marked Paid."
+                ? "Full payment received. This new record will be marked Paid."
                 : "Partial payment received. The remaining balance will be marked Due."}
+            </div>
+
+            <div className="mt-5 border-t pt-4">
+              <p className="text-sm font-semibold text-slate-600">
+                Previous Outstanding Due
+              </p>
+              <p className="mt-1 text-xl font-bold text-red-600">
+                {loadingExistingFees ? "Loading..." : money(existingDue)}
+              </p>
             </div>
 
             {receipt && (
