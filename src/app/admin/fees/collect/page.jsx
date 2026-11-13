@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  UserRound,
   Receipt,
   IndianRupee,
   CalendarDays,
@@ -247,9 +246,10 @@ useEffect(() => {
         )
     : 0;
 
-  const total = Number(form.amount) || 0;
-  const paid = Number(form.paid) || 0;
-  const due = Math.max(0, total - paid);
+  // Total Fee always comes from the selected class Fee Structure.
+const total = Number(calculatedTotal) || 0;
+const paid = Number(form.paid) || 0;
+const due = Math.max(0, total - paid);
 
   const status =
     total > 0 && due === 0
@@ -906,107 +906,7 @@ useEffect(() => {
           className="grid gap-6 lg:grid-cols-3"
         >
           <div className="space-y-6 lg:col-span-2">
-            {/* Student Details */}
-            <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-100 p-3 text-blue-700">
-                    <UserRound size={22} />
-                  </div>
-
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-800">
-                      Student Details
-                    </h2>
-                    <p className="text-sm text-slate-500">
-                      Selected student information
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={clearSelectedStudent}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  <X size={16} />
-                  Change Student
-                </button>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Admission Number" required>
-                  <input
-                    value={form.admissionNo}
-                    readOnly
-                    className={`${inputClass} bg-slate-50`}
-                    required
-                  />
-                </Field>
-
-                <Field label="Student Name" required>
-                  <input
-                    value={form.student}
-                    readOnly
-                    className={`${inputClass} bg-slate-50`}
-                    required
-                  />
-                </Field>
-
-                <Field label="Class / Grade" required>
-                  <input
-                    value={form.className}
-                    readOnly
-                    className={`${inputClass} bg-slate-50`}
-                    required
-                  />
-                </Field>
-
-                <Field label="Section">
-                  <input
-                    value={form.section}
-                    readOnly
-                    className={`${inputClass} bg-slate-50`}
-                  />
-                </Field>
-
-                <Field label="Roll Number">
-                  <input
-                    value={form.rollNo}
-                    readOnly
-                    className={`${inputClass} bg-slate-50`}
-                  />
-                </Field>
-
-                <Field label="Admission Session" required>
-                  <select
-                    name="session"
-                    value={form.session}
-                    onChange={updateField}
-                    className={inputClass}
-                    required
-                  >
-                    <option value="">Select Admission Session</option>
-
-                    {form.session &&
-                      !sessions.some(
-                        (item) => item.name === form.session
-                      ) && (
-                        <option value={form.session}>
-                          {form.session}
-                        </option>
-                      )}
-
-                    {sessions.map((item) => (
-                      <option key={item._id} value={item.name}>
-                        {item.name}
-                        {item.isCurrent ? " (Current)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-            </section>
+           
 
             {/* Previous Fee Details - Collapsible */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
@@ -1177,35 +1077,56 @@ useEffect(() => {
 
             {/* New Payment Details */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex items-center gap-3 border-b pb-4">
-                <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
-                  <CreditCard size={22} />
-                </div>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+  <div className="flex items-center gap-3">
+    <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
+      <CreditCard size={22} />
+    </div>
 
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Payment Details
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Total fee automatically loaded from class fee structure.
-                  </p>
-                </div>
-              </div>
+    <div>
+      <h2 className="text-lg font-bold text-slate-800">
+        Payment Details
+      </h2>
+      <p className="text-sm text-slate-500">
+        Total fee automatically loaded from class fee structure.
+      </p>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    onClick={clearSelectedStudent}
+    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+  >
+    <X size={16} />
+    Change Student
+  </button>
+</div>
 
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Total Fee (₹)">
-                  <input
-                    type="text"
-                    value={selectedStructure ? money(calculatedTotal) : "Fee Structure Not Found"}
-                    readOnly
-                    className={`${inputClass} bg-slate-50 font-bold`}
-                  />
-                  {!selectedStructure && (
-                    <p className="mt-2 text-xs text-red-600">
-                      Is class ke liye Fee Structure create karein.
-                    </p>
-                  )}
-                </Field>
+                <Field label="Admission Session" required>
+  <select
+    name="session"
+    value={form.session}
+    onChange={updateField}
+    className={inputClass}
+    required
+  >
+    <option value="">Select Admission Session</option>
+
+    {form.session &&
+      !sessions.some((item) => item.name === form.session) && (
+        <option value={form.session}>{form.session}</option>
+      )}
+
+    {sessions.map((item) => (
+      <option key={item._id} value={item.name}>
+        {item.name}
+        {item.isCurrent ? " (Current)" : ""}
+      </option>
+    ))}
+  </select>
+</Field>
 
                 <Field label="Amount Received (₹)" required>
                   <input
