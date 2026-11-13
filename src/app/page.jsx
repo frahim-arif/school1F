@@ -5,7 +5,7 @@ import Navbar from "./components/home/Navbar";
 import Footer from "./components/home/Footer";
 import Link from "next/link";
 import Image from "next/image";
-import { Inter, Merriweather } from "next/font/google";
+
  import HeroSlider from "./components/home/HeroSlider";
   import SchoolGlance from "./components/home/SchoolGlance";
   import WelcomeSection from "./components/home/WelcomeSection";
@@ -41,13 +41,7 @@ import {
   Quote,
 } from "lucide-react";
 
-const inter = Inter({ subsets: ["latin"] });
-const merri = Merriweather({
-  subsets: ["latin"],
-  weight: ["400", "700", "900"],
-  variable: "--font-head",
-});
-const H = "font-[family-name:var(--font-head)]";
+const H = "font-serif";
 const wrap = "mx-auto max-w-7xl px-5 md:px-8";
 
 const API_BASE = (
@@ -253,8 +247,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className={`${inter.className} ${merri.variable} overflow-hidden bg-slate-50 text-slate-800`}>
-        {/* HERO */}
+<main className="font-sans overflow-hidden bg-slate-50 text-slate-800">        {/* HERO */}
            <HeroSlider
      schoolName={schoolName}
      school={school}
