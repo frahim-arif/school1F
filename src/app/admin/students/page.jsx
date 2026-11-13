@@ -13,6 +13,7 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
+  IndianRupee,
 } from "lucide-react";
 
 const API_BASE = (
@@ -27,17 +28,59 @@ export default function StudentsPage() {
   const router = useRouter();
 
   const [students, setStudents] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState("");
+
   const [search, setSearch] = useState("");
   const [selectedClass, setSelectedClass] = useState("All Classes");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Load admission sessions
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const [sessionsResponse, currentResponse] = await Promise.all([
+          fetch(`${API_ROOT}/sessions`, { cache: "no-store" }),
+          fetch(`${API_ROOT}/sessions/current`, { cache: "no-store" }),
+        ]);
+
+        const sessionsData = await sessionsResponse.json();
+        const currentData = await currentResponse.json();
+
+        const sessionList = Array.isArray(sessionsData.sessions)
+          ? sessionsData.sessions
+          : [];
+
+        setSessions(sessionList);
+
+        const currentSession =
+          currentData?.session?.name ||
+          sessionList.find((item) => item.isCurrent)?.name ||
+          "";
+
+        if (currentSession) {
+          setSelectedSession(currentSession);
+        }
+      } catch (err) {
+        console.error("Session loading error:", err);
+      }
+    };
+
+    loadSessions();
+  }, []);
+
+  // Load all students
   const loadStudents = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch(`${API_ROOT}/students`);
+      const response = await fetch(`${API_ROOT}/students`, {
+        cache: "no-store",
+      });
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -46,9 +89,7 @@ export default function StudentsPage() {
 
       setStudents(Array.isArray(data.students) ? data.students : []);
     } catch (err) {
-      setError(
-        err.message || "Backend se connection nahi ho raha."
-      );
+      setError(err.message || "Backend se connection nahi ho raha.");
     } finally {
       setLoading(false);
     }
@@ -58,6 +99,17 @@ export default function StudentsPage() {
     loadStudents();
   }, [loadStudents]);
 
+  // Session options from API and student records
+  const sessionOptions = useMemo(() => {
+    const names = [
+      ...sessions.map((session) => session.name),
+      ...students.map((student) => student.session),
+    ].filter(Boolean);
+
+    return [...new Set(names)].sort();
+  }, [sessions, students]);
+
+  // Class options
   const classes = useMemo(
     () => [
       ...new Set(
@@ -69,6 +121,7 @@ export default function StudentsPage() {
     [students]
   );
 
+  // Filter students
   const filteredStudents = useMemo(() => {
     const term = search.trim().toLowerCase();
 
@@ -81,17 +134,22 @@ export default function StudentsPage() {
       const matchesSearch =
         !term ||
         name.includes(term) ||
-        (student.admissionNo || "").toLowerCase().includes(term) ||
-        (student.phone || "").toLowerCase().includes(term);
+        String(student.admissionNo || "").toLowerCase().includes(term) ||
+        String(student.phone || "").toLowerCase().includes(term);
 
       const matchesClass =
         selectedClass === "All Classes" ||
         student.className === selectedClass;
 
-      return matchesSearch && matchesClass;
-    });
-  }, [students, search, selectedClass]);
+      const matchesSession =
+        !selectedSession ||
+        student.session === selectedSession;
 
+      return matchesSearch && matchesClass && matchesSession;
+    });
+  }, [students, search, selectedClass, selectedSession]);
+
+  // Delete student
   const deleteStudent = async (student) => {
     const name =
       `${student.firstName || ""} ${student.lastName || ""}`.trim();
@@ -122,6 +180,16 @@ export default function StudentsPage() {
     }
   };
 
+  // Open fee collection with selected student details
+  const openCollectFee = (student) => {
+    const params = new URLSearchParams();
+
+    params.set("studentId", student._id);
+    params.set("admissionNo", student.admissionNo || "");
+
+    router.push(`/admin/fees/collect?${params.toString()}`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -145,9 +213,33 @@ export default function StudentsPage() {
         </Link>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search and Filters */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
+
+          {/* Admission Session */}
+          <select
+            value={selectedSession}
+            onChange={(event) => setSelectedSession(event.target.value)}
+            className="rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+          >
+            <option value="">All Sessions</option>
+
+            {selectedSession &&
+              !sessionOptions.includes(selectedSession) && (
+                <option value={selectedSession}>
+                  {selectedSession}
+                </option>
+              )}
+
+            {sessionOptions.map((session) => (
+              <option key={session} value={session}>
+                {session}
+              </option>
+            ))}
+          </select>
+
+          {/* Search */}
           <div className="relative">
             <Search
               className="absolute left-4 top-3.5 text-slate-400"
@@ -163,6 +255,7 @@ export default function StudentsPage() {
             />
           </div>
 
+          {/* Class */}
           <select
             value={selectedClass}
             onChange={(event) => setSelectedClass(event.target.value)}
@@ -177,12 +270,17 @@ export default function StudentsPage() {
             ))}
           </select>
 
+          {/* Refresh */}
           <button
             type="button"
             onClick={loadStudents}
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-800 py-3 font-semibold text-white hover:bg-slate-700"
+            disabled={loading}
+            className="flex items-center justify-center gap-2 rounded-xl bg-slate-800 py-3 font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
           >
-            <Filter size={18} />
+            <RefreshCw
+              size={18}
+              className={loading ? "animate-spin" : ""}
+            />
             Refresh Students
           </button>
         </div>
@@ -194,7 +292,10 @@ export default function StudentsPage() {
           <AlertCircle size={20} className="mt-0.5 shrink-0" />
 
           <div>
-            <p className="font-semibold">Students load nahi hue</p>
+            <p className="font-semibold">
+              Students load nahi hue
+            </p>
+
             <p className="mt-1 text-sm">{error}</p>
 
             <button
@@ -208,14 +309,22 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Students Table */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b px-6 py-4">
-          <p className="font-semibold text-slate-700">
-            {loading
-              ? "Loading students..."
-              : `${filteredStudents.length} student(s) found`}
-          </p>
+          <div>
+            <p className="font-semibold text-slate-700">
+              {loading
+                ? "Loading students..."
+                : `${filteredStudents.length} student(s) found`}
+            </p>
+
+            {selectedSession && (
+              <p className="mt-1 text-xs text-slate-500">
+                Session: {selectedSession}
+              </p>
+            )}
+          </div>
 
           {loading && (
             <RefreshCw
@@ -248,7 +357,7 @@ export default function StudentsPage() {
                   >
                     {students.length === 0
                       ? "Backend mein abhi koi student saved nahi hai. Add Student par click karke student add karein."
-                      : "Search ya selected class se matching student nahi mila."}
+                      : "Selected session, search ya class se matching student nahi mila."}
                   </td>
                 </tr>
               )}
@@ -263,7 +372,7 @@ export default function StudentsPage() {
                     className="border-t hover:bg-slate-50"
                   >
                     <td className="px-6 py-4 font-semibold">
-                      {student.admissionNo}
+                      {student.admissionNo || "--"}
                     </td>
 
                     <td className="px-6 py-4">
@@ -295,20 +404,23 @@ export default function StudentsPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <div className="flex justify-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
+
+                        {/* View Attendance */}
                         <button
                           type="button"
                           title="View Attendance"
-                         onClick={() =>
-  router.push(
-    `/admin/attendance/student/${student._id}`
-  )
-}
+                          onClick={() =>
+                            router.push(
+                              `/admin/attendance/student/${student._id}`
+                            )
+                          }
                           className="rounded-lg bg-blue-100 p-2 text-blue-600 hover:bg-blue-200"
                         >
                           <Eye size={18} />
                         </button>
 
+                        {/* Edit Student */}
                         <button
                           type="button"
                           title="Edit Student"
@@ -322,6 +434,17 @@ export default function StudentsPage() {
                           <Pencil size={18} />
                         </button>
 
+                        {/* Collect Fee */}
+                        <button
+                          type="button"
+                          title="Collect Fee"
+                          onClick={() => openCollectFee(student)}
+                          className="rounded-lg bg-emerald-100 p-2 text-emerald-700 hover:bg-emerald-200"
+                        >
+                          <IndianRupee size={18} />
+                        </button>
+
+                        {/* Delete Student */}
                         <button
                           type="button"
                           title="Delete Student"
@@ -330,6 +453,7 @@ export default function StudentsPage() {
                         >
                           <Trash2 size={18} />
                         </button>
+
                       </div>
                     </td>
                   </tr>
