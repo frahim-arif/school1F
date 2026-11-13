@@ -908,6 +908,124 @@ const due = Math.max(0, total - paid);
           <div className="space-y-6 lg:col-span-2">
            
 
+            
+
+            {/* New Payment Details */}
+            <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+  <div className="flex items-center gap-3">
+    <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
+      <CreditCard size={22} />
+    </div>
+
+    <div>
+      <h2 className="text-lg font-bold text-slate-800">
+        Payment Details
+      </h2>
+      <p className="text-sm text-slate-500">
+        Total fee automatically loaded from class fee structure.
+      </p>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    onClick={clearSelectedStudent}
+    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+  >
+    <X size={16} />
+    Change Student
+  </button>
+</div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Admission Session" required>
+  <select
+    name="session"
+    value={form.session}
+    onChange={updateField}
+    className={inputClass}
+    required
+  >
+    <option value="">Select Admission Session</option>
+
+    {form.session &&
+      !sessions.some((item) => item.name === form.session) && (
+        <option value={form.session}>{form.session}</option>
+      )}
+
+    {sessions.map((item) => (
+      <option key={item._id} value={item.name}>
+        {item.name}
+        {item.isCurrent ? " (Current)" : ""}
+      </option>
+    ))}
+  </select>
+</Field>
+
+                <Field label="Amount Received (₹)" required>
+                  <input
+                    name="paid"
+                    type="number"
+                    min="0"
+                    max={calculatedTotal || undefined}
+                    step="0.01"
+                    value={form.paid}
+                    onChange={updateField}
+                    placeholder="Enter amount received"
+                    required
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Payment Method" required>
+                  <select
+                    name="paymentMethod"
+                    value={form.paymentMethod}
+                    onChange={updateField}
+                    className={inputClass}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
+
+                <Field label="Payment Date">
+                  <div className="relative">
+                    <CalendarDays
+                      size={18}
+                      className="pointer-events-none absolute left-3 top-3.5 text-slate-400"
+                    />
+                    <input
+                      name="paymentDate"
+                      type="date"
+                      value={form.paymentDate}
+                      onChange={updateField}
+                      className={`${inputClass} pl-10`}
+                    />
+                  </div>
+                </Field>
+
+                <div className="sm:col-span-2">
+                  <Field label="Remarks (Optional)">
+                    <textarea
+                      name="remarks"
+                      value={form.remarks}
+                      onChange={updateField}
+                      placeholder="Installment details or other notes..."
+                      rows={3}
+                      maxLength={1000}
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </section>
+
+
             {/* Previous Fee Details - Collapsible */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
               <button
@@ -1073,121 +1191,6 @@ const due = Math.max(0, total - paid);
                   )}
                 </div>
               )}
-            </section>
-
-            {/* New Payment Details */}
-            <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-  <div className="flex items-center gap-3">
-    <div className="rounded-xl bg-emerald-100 p-3 text-emerald-700">
-      <CreditCard size={22} />
-    </div>
-
-    <div>
-      <h2 className="text-lg font-bold text-slate-800">
-        Payment Details
-      </h2>
-      <p className="text-sm text-slate-500">
-        Total fee automatically loaded from class fee structure.
-      </p>
-    </div>
-  </div>
-
-  <button
-    type="button"
-    onClick={clearSelectedStudent}
-    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-  >
-    <X size={16} />
-    Change Student
-  </button>
-</div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Admission Session" required>
-  <select
-    name="session"
-    value={form.session}
-    onChange={updateField}
-    className={inputClass}
-    required
-  >
-    <option value="">Select Admission Session</option>
-
-    {form.session &&
-      !sessions.some((item) => item.name === form.session) && (
-        <option value={form.session}>{form.session}</option>
-      )}
-
-    {sessions.map((item) => (
-      <option key={item._id} value={item.name}>
-        {item.name}
-        {item.isCurrent ? " (Current)" : ""}
-      </option>
-    ))}
-  </select>
-</Field>
-
-                <Field label="Amount Received (₹)" required>
-                  <input
-                    name="paid"
-                    type="number"
-                    min="0"
-                    max={calculatedTotal || undefined}
-                    step="0.01"
-                    value={form.paid}
-                    onChange={updateField}
-                    placeholder="Enter amount received"
-                    required
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Payment Method" required>
-                  <select
-                    name="paymentMethod"
-                    value={form.paymentMethod}
-                    onChange={updateField}
-                    className={inputClass}
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </Field>
-
-                <Field label="Payment Date">
-                  <div className="relative">
-                    <CalendarDays
-                      size={18}
-                      className="pointer-events-none absolute left-3 top-3.5 text-slate-400"
-                    />
-                    <input
-                      name="paymentDate"
-                      type="date"
-                      value={form.paymentDate}
-                      onChange={updateField}
-                      className={`${inputClass} pl-10`}
-                    />
-                  </div>
-                </Field>
-
-                <div className="sm:col-span-2">
-                  <Field label="Remarks (Optional)">
-                    <textarea
-                      name="remarks"
-                      value={form.remarks}
-                      onChange={updateField}
-                      placeholder="Installment details or other notes..."
-                      rows={3}
-                      maxLength={1000}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-              </div>
             </section>
 
             {/* Action Buttons */}
