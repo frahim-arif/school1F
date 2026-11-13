@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,11 +15,21 @@ import {
   LoaderCircle,
   Search,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
 ).replace(/\/+$/, "");
+
+const today = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const initialForm = {
   studentId: "",
@@ -28,10 +38,11 @@ const initialForm = {
   className: "",
   section: "",
   rollNo: "",
+  session: "",
   amount: "",
   paid: "",
   paymentMethod: "Cash",
-  paymentDate: new Date().toISOString().slice(0, 10),
+  paymentDate: today(),
   remarks: "",
 };
 
@@ -51,11 +62,8 @@ const money = (value) =>
 
 const formatDate = (value) => {
   if (!value) return "-";
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return "-";
-
   return date.toLocaleDateString("en-IN");
 };
 
@@ -66,6 +74,13 @@ export default function CollectFeePage() {
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
+  const [sessions, setSessions] = useState([]);
+  const [currentSession, setCurrentSession] = useState("");
+  const [feeStructures, setFeeStructures] = useState([]);
+
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [settingsError, setSettingsError] = useState("");
+
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -74,12 +89,88 @@ export default function CollectFeePage() {
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState(null);
 
-  // Previous fee records
   const [existingFees, setExistingFees] = useState([]);
   const [loadingExistingFees, setLoadingExistingFees] = useState(false);
   const [existingFeeError, setExistingFeeError] = useState("");
+  const [showPreviousFees, setShowPreviousFees] = useState(false);
 
-  // New fee form summary
+  // Load admission sessions and class fee structures.
+  useEffect(() => {
+    const loadSettings = async () => {
+      setLoadingSettings(true);
+      setSettingsError("");
+
+      try {
+        const [sessionResponse, currentResponse, structureResponse] =
+          await Promise.all([
+            fetch(`${API_BASE}/api/sessions`),
+            fetch(`${API_BASE}/api/sessions/current`),
+            fetch(`${API_BASE}/api/fee-structures`),
+          ]);
+
+        const [sessionData, currentData, structureData] =
+          await Promise.all([
+            sessionResponse.json(),
+            currentResponse.json(),
+            structureResponse.json(),
+          ]);
+
+        if (!sessionResponse.ok || sessionData.success === false) {
+          throw new Error(
+            sessionData.message || "Admission sessions load nahi hue."
+          );
+        }
+
+        if (!structureResponse.ok || structureData.success === false) {
+          throw new Error(
+            structureData.message || "Fee structures load nahi hue."
+          );
+        }
+
+        const sessionList = Array.isArray(sessionData.sessions)
+          ? sessionData.sessions
+          : [];
+
+        const structureList = Array.isArray(structureData.structures)
+          ? structureData.structures
+          : [];
+
+        setSessions(sessionList);
+        setFeeStructures(structureList);
+
+        const currentName =
+          currentData?.session?.name ||
+          sessionList.find((item) => item.isCurrent)?.name ||
+          "";
+
+        setCurrentSession(currentName);
+      } catch (err) {
+        setSettingsError(
+          err.message || "Fee settings load nahi ho sake."
+        );
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Automatically find fee structure using selected class.
+  const selectedStructure = feeStructures.find(
+    (item) =>
+      String(item.className || "").trim().toLowerCase() ===
+      String(form.className || "").trim().toLowerCase()
+  );
+
+  const calculatedTotal = selectedStructure
+    ? ["tuition", "admission", "exam", "computer", "library", "transport"]
+        .reduce(
+          (sum, field) => sum + (Number(selectedStructure[field]) || 0),
+          0
+        )
+    : 0;
+
   const total = Number(form.amount) || 0;
   const paid = Number(form.paid) || 0;
   const due = Math.max(0, total - paid);
@@ -91,7 +182,6 @@ export default function CollectFeePage() {
       ? "Partial"
       : "Pending";
 
-  // Previous fee summary
   const existingTotal = existingFees.reduce(
     (sum, fee) => sum + (Number(fee.amount) || 0),
     0
@@ -107,7 +197,6 @@ export default function CollectFeePage() {
     0
   );
 
-  // Update new fee form
   const updateField = (event) => {
     const { name, value } = event.target;
 
@@ -121,7 +210,6 @@ export default function CollectFeePage() {
     setReceipt(null);
   };
 
-  // Update student search filters
   const updateFilter = (event) => {
     const { name, value } = event.target;
 
@@ -133,7 +221,7 @@ export default function CollectFeePage() {
     setError("");
   };
 
-  // Load previous fee records for selected student
+  // Load previous fee records for selected student.
   const loadExistingFees = async (student) => {
     setLoadingExistingFees(true);
     setExistingFees([]);
@@ -159,7 +247,6 @@ export default function CollectFeePage() {
       }
 
       const allFees = Array.isArray(data.fees) ? data.fees : [];
-
       const selectedId = String(student._id || "");
 
       const matchedFees = allFees.filter((fee) => {
@@ -168,19 +255,16 @@ export default function CollectFeePage() {
             ? String(fee.studentId?._id || "")
             : String(fee.studentId || "");
 
-        // If fee has studentId, match by ID.
         if (feeStudentId && selectedId) {
           return feeStudentId === selectedId;
         }
 
-        // Otherwise match exact admission number.
         return (
           String(fee.admissionNo || "").trim().toLowerCase() ===
           admissionNo.toLowerCase()
         );
       });
 
-      // Latest receipts first
       matchedFees.sort(
         (a, b) =>
           new Date(b.paymentDate || b.createdAt || 0).getTime() -
@@ -197,7 +281,7 @@ export default function CollectFeePage() {
     }
   };
 
-  // Search students
+  // Search students.
   const searchStudents = async (event) => {
     event?.preventDefault();
 
@@ -211,7 +295,7 @@ export default function CollectFeePage() {
 
     if (!params.toString()) {
       setError(
-        "Student search ke liye Name, Class, Section ya Roll Number mein se kam se kam ek field bharein."
+        "Name, Class, Section ya Roll Number mein se kam se kam ek field bharein."
       );
       return;
     }
@@ -220,21 +304,14 @@ export default function CollectFeePage() {
     setHasSearched(true);
     setStudents([]);
     setSelectedStudent(null);
-
     setExistingFees([]);
     setExistingFeeError("");
+    setShowPreviousFees(false);
 
     setForm((previous) => ({
       ...previous,
-      studentId: "",
-      admissionNo: "",
-      student: "",
-      className: "",
-      section: "",
-      rollNo: "",
-      amount: "",
-      paid: "",
-      remarks: "",
+      ...initialForm,
+      paymentDate: today(),
     }));
 
     setError("");
@@ -249,26 +326,26 @@ export default function CollectFeePage() {
       const data = await response.json();
 
       if (!response.ok || data.success === false) {
-        throw new Error(
-          data.message || "Students search nahi ho sake."
-        );
+        throw new Error(data.message || "Students search nahi ho sake.");
       }
 
-      setStudents(
-        Array.isArray(data.students) ? data.students : []
-      );
+      setStudents(Array.isArray(data.students) ? data.students : []);
     } catch (err) {
       setError(
-        err.message ||
-          "Student search ke liye server se connection nahi ho raha."
+        err.message || "Student search ke liye server connection nahi ho raha."
       );
     } finally {
       setSearching(false);
     }
   };
 
-  // Select student and load previous fees
+  // Select student.
   const chooseStudent = (student) => {
+    const studentSession =
+      student.session ||
+      currentSession ||
+      "";
+
     setSelectedStudent(student);
 
     setForm((previous) => ({
@@ -277,17 +354,22 @@ export default function CollectFeePage() {
       admissionNo: student.admissionNo || "",
       student:
         student.student ||
-        [student.firstName, student.lastName].filter(Boolean).join(" "),
+        [student.firstName, student.houseName, student.lastName]
+          .filter(Boolean)
+          .join(" "),
       className: student.className || "",
       section: student.section || "",
       rollNo: student.rollNo ?? "",
+      session: studentSession,
       amount: "",
       paid: "",
       remarks: "",
+      paymentDate: today(),
     }));
 
     setStudents([]);
     setHasSearched(false);
+    setShowPreviousFees(false);
 
     setError("");
     setMessage("");
@@ -296,7 +378,6 @@ export default function CollectFeePage() {
     loadExistingFees(student);
   };
 
-  // Change selected student
   const clearSelectedStudent = () => {
     setSelectedStudent(null);
     setFilters(initialFilters);
@@ -306,26 +387,19 @@ export default function CollectFeePage() {
     setExistingFees([]);
     setExistingFeeError("");
     setLoadingExistingFees(false);
+    setShowPreviousFees(false);
 
-    setForm((previous) => ({
-      ...previous,
-      studentId: "",
-      admissionNo: "",
-      student: "",
-      className: "",
-      section: "",
-      rollNo: "",
-      amount: "",
-      paid: "",
-      remarks: "",
-    }));
+    setForm({
+      ...initialForm,
+      paymentDate: today(),
+    });
 
     setReceipt(null);
     setMessage("");
     setError("");
   };
 
-  // Save new fee receipt
+  // Save new fee receipt.
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -334,7 +408,19 @@ export default function CollectFeePage() {
     setReceipt(null);
 
     if (!selectedStudent || !form.studentId) {
-      setError("Pehle search result se student select karein.");
+      setError("Pehle student select karein.");
+      return;
+    }
+
+    if (!form.session) {
+      setError("Admission Session select karein.");
+      return;
+    }
+
+    if (!selectedStructure || calculatedTotal <= 0) {
+      setError(
+        `Class ${form.className} ke liye Fee Structure nahi mila. Pehle Fee Structure page par is class ki fee set karein.`
+      );
       return;
     }
 
@@ -344,9 +430,7 @@ export default function CollectFeePage() {
     }
 
     if (!Number.isFinite(paid) || paid < 0 || paid > total) {
-      setError(
-        "Paid amount zero aur total fee ke beech honi chahiye."
-      );
+      setError("Paid amount zero aur total fee ke beech honi chahiye.");
       return;
     }
 
@@ -365,6 +449,7 @@ export default function CollectFeePage() {
           className: form.className,
           section: form.section,
           rollNo: form.rollNo,
+          session: form.session,
           amount: total,
           paid,
           paymentMethod: form.paymentMethod,
@@ -391,7 +476,6 @@ export default function CollectFeePage() {
         }`
       );
 
-      // Refresh previous fee records after saving
       await loadExistingFees(selectedStudent);
     } catch (err) {
       setError(
@@ -403,20 +487,14 @@ export default function CollectFeePage() {
     }
   };
 
-  // Print receipt
+  // Print receipt.
   const printReceipt = () => {
     if (!receipt) return;
 
-    const printWindow = window.open(
-      "",
-      "_blank",
-      "width=800,height=700"
-    );
+    const printWindow = window.open("", "_blank", "width=800,height=700");
 
     if (!printWindow) {
-      setError(
-        "Receipt print karne ke liye browser pop-ups allow karein."
-      );
+      setError("Receipt print karne ke liye browser pop-ups allow karein.");
       return;
     }
 
@@ -438,6 +516,7 @@ export default function CollectFeePage() {
       ["Student", receipt.student || form.student],
       ["Admission Number", receipt.admissionNo || form.admissionNo],
       ["Class", receipt.className || form.className],
+      ["Admission Session", receipt.session || form.session],
       ["Section", receipt.section || form.section || "-"],
       ["Roll Number", receipt.rollNo ?? form.rollNo ?? "-"],
       ["Total Fee", money(receipt.amount ?? total)],
@@ -460,12 +539,8 @@ export default function CollectFeePage() {
             padding: 35px;
             color: #172033;
           }
-          h1, .subtitle {
-            text-align: center;
-          }
-          .subtitle {
-            color: #64748b;
-          }
+          h1, .subtitle { text-align: center; }
+          .subtitle { color: #64748b; }
           table {
             width: 100%;
             border-collapse: collapse;
@@ -490,24 +565,18 @@ export default function CollectFeePage() {
       <body>
         <h1>School Fee Receipt</h1>
         <p class="subtitle">Official Payment Receipt</p>
-
         <table>
           ${rows
             .map(
               ([label, value]) =>
-                `<tr>
-                  <td>${escapeHtml(label)}</td>
-                  <td>${escapeHtml(value)}</td>
-                </tr>`
+                `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`
             )
             .join("")}
         </table>
-
         <div class="signatures">
           <span>Parent/Guardian Signature</span>
           <span>Authorized Signature</span>
         </div>
-
         <script>
           window.onload = () => window.print();
         <\/script>
@@ -520,7 +589,6 @@ export default function CollectFeePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -547,7 +615,22 @@ export default function CollectFeePage() {
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Settings Loading / Error */}
+      {loadingSettings && (
+        <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-slate-600">
+          <LoaderCircle size={19} className="animate-spin" />
+          Loading admission sessions and fee structures...
+        </div>
+      )}
+
+      {settingsError && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          <AlertCircle size={20} className="shrink-0" />
+          <p>{settingsError}</p>
+        </div>
+      )}
+
+      {/* Error */}
       {error && (
         <div
           role="alert"
@@ -558,7 +641,7 @@ export default function CollectFeePage() {
         </div>
       )}
 
-      {/* Success Message */}
+      {/* Success */}
       {message && (
         <div
           role="status"
@@ -593,7 +676,6 @@ export default function CollectFeePage() {
             <h2 className="text-lg font-bold text-slate-800">
               Find Student
             </h2>
-
             <p className="mt-1 text-sm text-slate-500">
               Name, Class, Roll Number ya Section se student search karein.
             </p>
@@ -656,7 +738,6 @@ export default function CollectFeePage() {
                 ) : (
                   <Search size={18} />
                 )}
-
                 {searching ? "Searching..." : "Search"}
               </button>
 
@@ -675,7 +756,6 @@ export default function CollectFeePage() {
             </div>
           </form>
 
-          {/* Search Results */}
           {hasSearched && !searching && (
             <div className="mt-5 space-y-3 border-t pt-4">
               <p className="text-sm font-semibold text-slate-600">
@@ -695,7 +775,7 @@ export default function CollectFeePage() {
                     <div>
                       <p className="font-bold text-slate-800">
                         {student.student ||
-                          [student.firstName, student.lastName]
+                          [student.firstName, student.houseName, student.lastName]
                             .filter(Boolean)
                             .join(" ")}
                       </p>
@@ -723,14 +803,13 @@ export default function CollectFeePage() {
         </section>
       )}
 
-      {/* Selected Student Form */}
+      {/* Selected Student */}
       {selectedStudent && (
         <form
           onSubmit={handleSubmit}
           className="grid gap-6 lg:grid-cols-3"
         >
           <div className="space-y-6 lg:col-span-2">
-
             {/* Student Details */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
@@ -743,7 +822,6 @@ export default function CollectFeePage() {
                     <h2 className="text-lg font-bold text-slate-800">
                       Student Details
                     </h2>
-
                     <p className="text-sm text-slate-500">
                       Selected student information
                     </p>
@@ -803,150 +881,201 @@ export default function CollectFeePage() {
                     className={`${inputClass} bg-slate-50`}
                   />
                 </Field>
+
+                <Field label="Admission Session" required>
+                  <select
+                    name="session"
+                    value={form.session}
+                    onChange={updateField}
+                    className={inputClass}
+                    required
+                  >
+                    <option value="">Select Admission Session</option>
+
+                    {form.session &&
+                      !sessions.some(
+                        (item) => item.name === form.session
+                      ) && (
+                        <option value={form.session}>
+                          {form.session}
+                        </option>
+                      )}
+
+                    {sessions.map((item) => (
+                      <option key={item._id} value={item.name}>
+                        {item.name}
+                        {item.isCurrent ? " (Current)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               </div>
             </section>
 
-            {/* Previous Fee Details */}
+            {/* Previous Fee Details - Collapsible */}
             <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 flex items-center gap-3 border-b pb-4">
-                <div className="rounded-xl bg-amber-100 p-3 text-amber-700">
-                  <Receipt size={22} />
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Previous Fee Details
-                  </h2>
-
-                  <p className="text-sm text-slate-500">
-                    Previously recorded fees for this student
-                  </p>
-                </div>
-              </div>
-
-              {loadingExistingFees ? (
-                <div className="flex items-center gap-2 py-5 text-slate-500">
-                  <LoaderCircle size={19} className="animate-spin" />
-                  Loading previous fee records...
-                </div>
-              ) : existingFeeError ? (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {existingFeeError}
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">
-                        Previous Total Fee
-                      </p>
-                      <p className="mt-1 text-xl font-bold text-slate-800">
-                        {money(existingTotal)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-emerald-50 p-4">
-                      <p className="text-sm text-emerald-700">
-                        Previous Total Paid
-                      </p>
-                      <p className="mt-1 text-xl font-bold text-emerald-700">
-                        {money(existingPaid)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-red-50 p-4">
-                      <p className="text-sm text-red-700">
-                        Previous Remaining Due
-                      </p>
-                      <p className="mt-1 text-xl font-bold text-red-700">
-                        {money(existingDue)}
-                      </p>
-                    </div>
+              <button
+                type="button"
+                onClick={() => setShowPreviousFees((previous) => !previous)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-amber-100 p-3 text-amber-700">
+                    <Receipt size={22} />
                   </div>
 
-                  <div className="mt-5">
-                    <h3 className="mb-3 font-bold text-slate-800">
-                      Previous Fee Receipts ({existingFees.length})
-                    </h3>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">
+                      Previous Fee Details
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Click to view previous fee records
+                    </p>
+                  </div>
+                </div>
 
-                    {existingFees.length === 0 ? (
-                      <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
-                        Is student ke liye abhi koi previous fee record
-                        nahi mila. Aap neeche new fee receipt create kar
-                        sakte hain.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {existingFees.map((fee) => (
-                          <div
-                            key={fee._id}
-                            className="rounded-xl border border-slate-200 p-4"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                <p className="font-bold text-slate-800">
-                                  {fee.receipt || "Fee Receipt"}
-                                </p>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                    {existingFees.length} Records
+                  </span>
+                  {showPreviousFees ? (
+                    <ChevronUp size={21} className="text-slate-500" />
+                  ) : (
+                    <ChevronDown size={21} className="text-slate-500" />
+                  )}
+                </div>
+              </button>
 
-                                <p className="mt-1 text-xs text-slate-500">
-                                  Date: {formatDate(fee.paymentDate)}
-                                </p>
-                              </div>
+              {showPreviousFees && (
+                <div className="mt-5 border-t pt-5">
+                  {loadingExistingFees ? (
+                    <div className="flex items-center gap-2 py-5 text-slate-500">
+                      <LoaderCircle size={19} className="animate-spin" />
+                      Loading previous fee records...
+                    </div>
+                  ) : existingFeeError ? (
+                    <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                      {existingFeeError}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">
+                            Previous Total Fee
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-slate-800">
+                            {money(existingTotal)}
+                          </p>
+                        </div>
 
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-bold ${
-                                  fee.status === "Paid"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : fee.status === "Partial"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-red-100 text-red-700"
-                                }`}
-                              >
-                                {fee.status || "Pending"}
-                              </span>
-                            </div>
+                        <div className="rounded-xl bg-emerald-50 p-4">
+                          <p className="text-sm text-emerald-700">
+                            Previous Total Paid
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-emerald-700">
+                            {money(existingPaid)}
+                          </p>
+                        </div>
 
-                            <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-3">
-                              <div>
-                                <p className="text-xs text-slate-500">
-                                  Total
-                                </p>
-                                <p className="mt-1 font-bold text-slate-800">
-                                  {money(fee.amount)}
-                                </p>
-                              </div>
-
-                              <div>
-                                <p className="text-xs text-slate-500">
-                                  Paid
-                                </p>
-                                <p className="mt-1 font-bold text-emerald-600">
-                                  {money(fee.paid)}
-                                </p>
-                              </div>
-
-                              <div>
-                                <p className="text-xs text-slate-500">
-                                  Due
-                                </p>
-                                <p className="mt-1 font-bold text-red-600">
-                                  {money(fee.due)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="mt-3 text-xs text-slate-500">
-                              Payment Method: {fee.paymentMethod || "-"}
-                              {fee.remarks
-                                ? ` · Remarks: ${fee.remarks}`
-                                : ""}
-                            </div>
-                          </div>
-                        ))}
+                        <div className="rounded-xl bg-red-50 p-4">
+                          <p className="text-sm text-red-700">
+                            Previous Remaining Due
+                          </p>
+                          <p className="mt-1 text-xl font-bold text-red-700">
+                            {money(existingDue)}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </>
+
+                      <div className="mt-5">
+                        <h3 className="mb-3 font-bold text-slate-800">
+                          Previous Fee Receipts ({existingFees.length})
+                        </h3>
+
+                        {existingFees.length === 0 ? (
+                          <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+                            Is student ke liye abhi koi previous fee record
+                            nahi mila.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {existingFees.map((fee) => (
+                              <div
+                                key={fee._id}
+                                className="rounded-xl border border-slate-200 p-4"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <p className="font-bold text-slate-800">
+                                      {fee.receipt || "Fee Receipt"}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      Date: {formatDate(
+                                        fee.paymentDate || fee.createdAt
+                                      )}
+                                      {fee.session
+                                        ? ` · Session: ${fee.session}`
+                                        : ""}
+                                    </p>
+                                  </div>
+
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                      fee.status === "Paid"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : fee.status === "Partial"
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {fee.status || "Pending"}
+                                  </span>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-3">
+                                  <div>
+                                    <p className="text-xs text-slate-500">
+                                      Total
+                                    </p>
+                                    <p className="mt-1 font-bold text-slate-800">
+                                      {money(fee.amount)}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-slate-500">
+                                      Paid
+                                    </p>
+                                    <p className="mt-1 font-bold text-emerald-600">
+                                      {money(fee.paid)}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-slate-500">
+                                      Due
+                                    </p>
+                                    <p className="mt-1 font-bold text-red-600">
+                                      {money(fee.due)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 text-xs text-slate-500">
+                                  Payment Method: {fee.paymentMethod || "-"}
+                                  {fee.remarks
+                                    ? ` · Remarks: ${fee.remarks}`
+                                    : ""}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </section>
 
@@ -961,27 +1090,25 @@ export default function CollectFeePage() {
                   <h2 className="text-lg font-bold text-slate-800">
                     Payment Details
                   </h2>
-
                   <p className="text-sm text-slate-500">
-                    Enter the total fee and amount received for a new fee
-                    receipt.
+                    Total fee automatically loaded from class fee structure.
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Total Fee (₹)" required>
+                <Field label="Total Fee (₹)">
                   <input
-                    name="amount"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={form.amount}
-                    onChange={updateField}
-                    placeholder="Enter total fee"
-                    required
-                    className={inputClass}
+                    type="text"
+                    value={selectedStructure ? money(calculatedTotal) : "Fee Structure Not Found"}
+                    readOnly
+                    className={`${inputClass} bg-slate-50 font-bold`}
                   />
+                  {!selectedStructure && (
+                    <p className="mt-2 text-xs text-red-600">
+                      Is class ke liye Fee Structure create karein.
+                    </p>
+                  )}
                 </Field>
 
                 <Field label="Amount Received (₹)" required>
@@ -989,7 +1116,7 @@ export default function CollectFeePage() {
                     name="paid"
                     type="number"
                     min="0"
-                    max={form.amount || undefined}
+                    max={calculatedTotal || undefined}
                     step="0.01"
                     value={form.paid}
                     onChange={updateField}
@@ -1020,7 +1147,6 @@ export default function CollectFeePage() {
                       size={18}
                       className="pointer-events-none absolute left-3 top-3.5 text-slate-400"
                     />
-
                     <input
                       name="paymentDate"
                       type="date"
@@ -1058,7 +1184,13 @@ export default function CollectFeePage() {
 
               <button
                 type="submit"
-                disabled={submitting || !selectedStudent}
+                disabled={
+                  submitting ||
+                  !selectedStudent ||
+                  !selectedStructure ||
+                  calculatedTotal <= 0 ||
+                  !form.session
+                }
                 className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? (
@@ -1076,7 +1208,7 @@ export default function CollectFeePage() {
             </div>
           </div>
 
-          {/* New Payment Summary */}
+          {/* Payment Summary */}
           <aside className="h-fit rounded-2xl border bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-6">
             <h2 className="text-lg font-bold text-slate-800">
               Payment Summary
@@ -1087,10 +1219,7 @@ export default function CollectFeePage() {
             </p>
 
             <div className="mt-6 space-y-4">
-              <SummaryRow
-                label="Total Fee"
-                value={money(total)}
-              />
+              <SummaryRow label="Total Fee" value={money(total)} />
 
               <SummaryRow
                 label="Amount Received"
@@ -1136,15 +1265,6 @@ export default function CollectFeePage() {
                 : "Partial payment received. The remaining balance will be marked Due."}
             </div>
 
-            <div className="mt-5 border-t pt-4">
-              <p className="text-sm font-semibold text-slate-600">
-                Previous Outstanding Due
-              </p>
-              <p className="mt-1 text-xl font-bold text-red-600">
-                {loadingExistingFees ? "Loading..." : money(existingDue)}
-              </p>
-            </div>
-
             {receipt && (
               <button
                 type="button"
@@ -1170,11 +1290,8 @@ function Field({ label, required, children }) {
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
         {label}
-        {required && (
-          <span className="ml-1 text-red-500">*</span>
-        )}
+        {required && <span className="ml-1 text-red-500">*</span>}
       </span>
-
       {children}
     </label>
   );
@@ -1188,10 +1305,7 @@ function SummaryRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-slate-500">
-        {label}
-      </span>
-
+      <span className="text-sm text-slate-500">{label}</span>
       <span
         className={`font-bold ${
           large ? "text-xl" : "text-base"
