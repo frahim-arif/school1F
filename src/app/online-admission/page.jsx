@@ -16,7 +16,7 @@ import {
 
 const API_BASE = (() => {
   const base = (
-    process.env.NEXT_PUBLIC_API_URL || "https://schoolnb.onrender.com"
+    process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
   ).replace(/\/+$/, "");
 
   return base.endsWith("/api") ? base : `${base}/api`;
