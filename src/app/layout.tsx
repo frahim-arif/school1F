@@ -2,32 +2,33 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 
-const schoolName = "Niz Dhing GyanDeep Jatiya Bidyalaya";
+const schoolName = "Adarsha Markaz Academy";
 
 export const metadata = {
+  // Set NEXT_PUBLIC_SITE_URL (for example https://yourschool.com) in your .env file
+  // so that share previews (WhatsApp, Facebook) use the correct full links.
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
 
   title: {
-    default: `${schoolName}, Niz Dhing, Nagaon`,
+    default: `${schoolName}, Laharighat`,
     template: `%s | ${schoolName}`,
   },
 
   description:
-    "Niz Dhing GyanDeep Jatiya Bidyalaya, Niz Dhing, Nagaon, Assam - Providing quality education and building knowledge, character and values.",
+    "Adarsha Markaz Academy, Laharighat, Morigaon, Assam. Quality education from Nursery to Class XII, built on knowledge, character and values. Established 2014.",
 
   keywords: [
-    "Niz Dhing GyanDeep Jatiya Bidyalaya",
-    "Niz Dhing GyanDeep School",
-    "Niz Dhing School",
-    "School in Niz Dhing",
-    "School in Nagaon",
+    "Adarsha Markaz Academy",
+    "Adarsha Markaz Academy Laharighat",
+    "School in Laharighat",
+    "School in Morigaon",
     "School in Assam",
-    "Assam School",
-    "UDISE 18100102011",
-    "School Admission",
-    "School Education",
+    "ASSEB school",
+    "Nursery to Class XII",
+    "Markazul Ma'arif",
+    "School Admissions",
     "Academics",
     "School Facilities",
   ],
@@ -37,22 +38,17 @@ export const metadata = {
   openGraph: {
     type: "website",
     siteName: schoolName,
-    title: `${schoolName}, Nagaon, Assam`,
+    title: `${schoolName}, Laharighat`,
     description:
-      "Welcome to Niz Dhing GyanDeep Jatiya Bidyalaya, Niz Dhing, Nagaon, Assam.",
+      "Quality education from Nursery to Class XII in Laharighat, Morigaon, Assam.",
     locale: "en_IN",
-  },
-
-  robots: {
-    index: true,
-    follow: true,
   },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#173b32",
+  themeColor: "#3e2218",
 };
 
 export default function RootLayout({
@@ -66,10 +62,10 @@ export default function RootLayout({
         className="
           min-h-screen
           bg-[#fffaf8]
-          text-[#173b32]
+          text-[#3e2218]
           antialiased
-          selection:bg-emerald-200
-          selection:text-[#173b32]
+          selection:bg-pink-200
+          selection:text-[#3e2218]
         "
       >
         {children}
