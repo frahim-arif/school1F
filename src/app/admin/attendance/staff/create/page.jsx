@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "hhttps://school1b.onrender.com"
+  process.env.NEXT_PUBLIC_API_URL || "hhttps://schoolnb.onrender.com"
 ).replace(/\/$/, "");
 
 const initialForm = {

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 const API_ORIGIN = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+  process.env.NEXT_PUBLIC_API_URL || "https://schoolnb.onrender.com/api"
 ).replace(/\/+$/, "");
 
 const API_BASE = API_ORIGIN.endsWith("/api")

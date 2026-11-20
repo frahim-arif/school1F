@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 
 const API_ROOT = (
-  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com"
+  process.env.NEXT_PUBLIC_API_URL || "https://schoolnb.onrender.com"
 ).replace(/\/+$/, "").replace(/\/api$/, "");
 
 const initialForm = {

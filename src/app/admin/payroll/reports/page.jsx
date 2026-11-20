@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, RefreshCw, Search, ChartNoAxesCombined } from "lucide-react";
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
+const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || "https://schoolnb.onrender.com").replace(/\/+$/, "");
 const API = API_ORIGIN.endsWith("/api") ? API_ORIGIN : `${API_ORIGIN}/api`;
 const money = (v) => new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 2,

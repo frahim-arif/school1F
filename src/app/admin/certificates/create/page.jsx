@@ -11,7 +11,7 @@ import {
 } from "react-icons/hi2";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com/api";
+  process.env.NEXT_PUBLIC_API_URL || "https://schoolnb.onrender.com/api";
 
 const initialForm = {
   recipientType: "student",

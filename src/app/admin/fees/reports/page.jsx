@@ -7,7 +7,7 @@ import {
   TrendingUp, Wallet, AlertCircle, CheckCircle2
 } from "lucide-react";
 
-const API = (process.env.NEXT_PUBLIC_API_URL || "https://school1b.onrender.com").replace(/\/+$/, "");
+const API = (process.env.NEXT_PUBLIC_API_URL || "https://schoolnb.onrender.com").replace(/\/+$/, "");
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 
 export default function FeeReportsPage() {
